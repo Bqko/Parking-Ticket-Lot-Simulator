@@ -1,0 +1,51 @@
+/* ── Table base ── */
+.table-view {
+    -fx-background-color: #111827;
+    -fx-border-color: #1F2937;
+    -fx-border-radius: 12;
+    -fx-background-radius: 12;
+}
+
+/* ── Column headers ── */
+.table-view .column-header-background {
+    -fx-background-color: #1C2333;
+}
+.table-view .column-header .label {
+    -fx-text-fill: #6B7280;
+    -fx-font-weight: bold;
+    -fx-font-size: 12px;
+}
+
+/* ── Rows ── */
+.table-row-cell {
+    -fx-background-color: #111827;
+    -fx-border-color: #1F2937;
+    -fx-border-width: 0 0 1 0;
+    -fx-text-fill: #F9FAFB;
+}
+.table-row-cell:odd {
+    -fx-background-color: #1C2333;
+}
+.table-row-cell:selected {
+    -fx-background-color: #3B82F622;
+    -fx-border-color: #3B82F655;
+}
+
+/* ── Cell text — THIS is the key fix ── */
+.table-cell {
+    -fx-text-fill: #F9FAFB;
+    -fx-font-size: 13px;
+    -fx-padding: 10 14 10 14;
+}
+.table-row-cell:selected .table-cell {
+    -fx-text-fill: #F9FAFB;
+}
+
+/* ── Scrollbar ── */
+.table-view .scroll-bar:vertical {
+    -fx-background-color: #111827;
+}
+.table-view .scroll-bar:vertical .thumb {
+    -fx-background-color: #374151;
+    -fx-background-radius: 4;
+}

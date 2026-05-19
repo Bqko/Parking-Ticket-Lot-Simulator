@@ -42,7 +42,7 @@ public class ParkingLot {
      * Resets the singleton — useful for unit tests only.
      * Do NOT call in production code.
      */
-    static void resetInstance() {
+    public static void resetInstance() {
         synchronized (ParkingLot.class) {
             instance = null;
         }
