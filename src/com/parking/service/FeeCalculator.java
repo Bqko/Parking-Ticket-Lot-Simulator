@@ -97,8 +97,9 @@ public class FeeCalculator {
         // 2. Convert to hours, rounding up every started hour
         double hoursParked = Math.ceil(minutesParked / 60.0);
 
-        // 3. Base fee = hours × rate × vehicle multiplier
-        double fee = hoursParked * baseRatePerHour * vehicle.getRateMultiplier();
+        // 3. Base fee = hours × rate × vehicle multiplier × time-of-day tier multiplier
+        double tierMultiplier = PricingTier.getActiveTier(entryTime.toLocalTime()).getRateMultiplier();
+        double fee = hoursParked * baseRatePerHour * vehicle.getRateMultiplier() * tierMultiplier;
 
         // 4. Apply daily maximum cap (per 24-hour block)
         long fullDays = duration.toDays();
