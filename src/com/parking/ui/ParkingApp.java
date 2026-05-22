@@ -298,7 +298,7 @@ public class ParkingApp extends Application {
         var sc1 = miniStatCard("Total Spots",   String.valueOf(lot.getTotalSpots()),                    ACCENT);
         var sc2 = miniStatCard("Available",     String.valueOf(lot.getAvailableCount()),                 SUCCESS);
         var sc3 = miniStatCard("Occupied",      String.valueOf(lot.getOccupiedCount()),                  WARNING);
-        var sc4 = miniStatCard("Revenue (TRY)", String.format("%.0f", TICKET_MANAGER.getTotalRevenue()), INFO);
+        var sc4 = miniStatCard("Revenue (USD)", String.format("%.0f", TICKET_MANAGER.getTotalRevenue()), INFO);
         for (var c : new VBox[]{sc1, sc2, sc3, sc4}) {
             HBox.setHgrow(c, Priority.ALWAYS);
             c.setMaxWidth(Double.MAX_VALUE);

@@ -16,10 +16,10 @@ import java.util.UUID;
 public class Ticket {
 
     // ── Fields ────────────────────────────────────────────────────────────
-    private final String         ticketId;       // UUID, printed on physical ticket
+    private String         ticketId;       // UUID, printed on physical ticket
     private final Vehicle        vehicle;        // The parked vehicle
     private final ParkingSpot    spot;           // Assigned spot
-    private final LocalDateTime  issuedAt;       // When ticket was created
+    private LocalDateTime  issuedAt;       // When ticket was created
 
     private LocalDateTime        exitTime;       // Set on exit
     private double               feeCharged;     // Calculated fee in local currency
@@ -151,12 +151,20 @@ public class Ticket {
             sb.append(String.format("║ Exit      : %-17s║\n", exitTime.toLocalTime()));
         }
         sb.append("╠══════════════════════════════╣\n");
-        sb.append(String.format("║ Fee       : %10.2f TRY   ║\n", feeCharged));
-        sb.append(String.format("║ Paid      : %10.2f TRY   ║\n", amountPaid));
-        sb.append(String.format("║ Change    : %10.2f TRY   ║\n", getChange()));
+        sb.append(String.format("║ Fee       : %10.2f USD   ║\n", feeCharged));
+        sb.append(String.format("║ Paid      : %10.2f USD  ║\n", amountPaid));
+        sb.append(String.format("║ Change    : %10.2f USD   ║\n", getChange()));
         sb.append("╠══════════════════════════════╣\n");
         sb.append(String.format("║ Status    : %-17s║\n", status));
         sb.append("╚══════════════════════════════╝\n");
         return sb.toString();
+    }
+
+    public void overrideTicketId(String id) {
+        this.ticketId = id;
+    }
+
+    public void overrideIssuedAt(LocalDateTime time) {
+        this.issuedAt = time;
     }
 }

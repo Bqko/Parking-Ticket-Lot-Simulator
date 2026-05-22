@@ -30,7 +30,7 @@ class FeeCalculatorTest {
 
     @BeforeEach
     void setUp() {
-        // Default: 20 TRY/hr, 200 TRY daily cap, 15 min grace, 0% discount
+        // Default: 20 USD/hr, 200 USD daily cap, 15 min grace, 0% discount
         calc       = new FeeCalculator();
         car        = new Vehicle("34 CAR 001", VehicleType.CAR);
         motorcycle = new Vehicle("34 MOT 001", VehicleType.MOTORCYCLE);

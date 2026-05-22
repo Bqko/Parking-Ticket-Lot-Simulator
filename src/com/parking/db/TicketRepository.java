@@ -6,6 +6,8 @@ import com.parking.enums.VehicleType;
 import com.parking.model.ParkingSpot;
 import com.parking.model.Ticket;
 import com.parking.model.Vehicle;
+import com.parking.model.ParkingLot;
+import com.parking.model.ParkingSpot;
 
 import java.sql.*;
 import java.time.LocalDateTime;
@@ -236,22 +238,29 @@ public class TicketRepository {
      * Maps a ResultSet row to a Ticket object.
      */
     private Ticket mapRow(ResultSet rs) throws SQLException {
-        String plate      = rs.getString("license_plate");
-        String typeStr    = rs.getString("vehicle_type");
-        String issuedStr  = rs.getString("issued_at");
-        String spotCode   = rs.getString("spot_code");
-        int    floor      = rs.getInt("floor_number");
-        String statusStr  = rs.getString("ticket_status");
-        double fee        = rs.getDouble("fee_charged");
-        double paid       = rs.getDouble("amount_paid");
-        String exitStr    = rs.getString("exit_time");
+        String ticketCode = rs.getString("ticket_code");
+        String plate = rs.getString("license_plate");
+        String typeStr = rs.getString("vehicle_type");
+        String issuedStr = rs.getString("issued_at");
+        String spotCode = rs.getString("spot_code");
+        int floor = rs.getInt("floor_number");
+        String statusStr = rs.getString("ticket_status");
+        double fee = rs.getDouble("fee_charged");
+        double paid = rs.getDouble("amount_paid");
+        String exitStr = rs.getString("exit_time");
 
-        VehicleType  type    = VehicleType.valueOf(typeStr);
+        VehicleType type = VehicleType.valueOf(typeStr);
         LocalDateTime issued = LocalDateTime.parse(issuedStr, FMT);
 
-        Vehicle     vehicle = new Vehicle(plate, type, issued);
-        ParkingSpot spot    = new ParkingSpot(spotCode, floor, SpotType.STANDARD);
-        Ticket      ticket  = new Ticket(vehicle, spot);
+        Vehicle vehicle = new Vehicle(plate, type, issued);
+        ParkingSpot spot = ParkingLot.getInstance()
+                .findSpotById(spotCode)
+                .orElse(new ParkingSpot(spotCode, floor, SpotType.STANDARD));
+        Ticket ticket = new Ticket(vehicle, spot);
+        ticket.overrideTicketId(ticketCode);
+        ticket.overrideIssuedAt(issued);
+
+        ticket.overrideTicketId(ticketCode);
 
         // Restore paid/exited state
         TicketStatus status = TicketStatus.valueOf(statusStr);
@@ -276,6 +285,26 @@ public class TicketRepository {
             ps.executeUpdate();
         } catch (SQLException e) {
             System.err.println("DB updateSpot error: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Reads all ACTIVE tickets and marks their spots occupied
+     * in the in-memory ParkingLot. Call once on startup.
+     */
+    public void restoreOccupancyFromDb(ParkingLot lot) {
+        String sql = "SELECT spot_code FROM tickets WHERE ticket_status = 'ACTIVE'";
+        try (Statement st = conn.createStatement();
+             ResultSet rs = st.executeQuery(sql)) {
+            int count = 0;
+            while (rs.next()) {
+                String spotCode = rs.getString("spot_code");
+                lot.findSpotById(spotCode).ifPresent(spot -> spot.setOccupied(true));
+                count++;
+            }
+            System.out.println("✅ Occupancy restored: " + count + " active spots.");
+        } catch (SQLException e) {
+            System.err.println("DB restoreOccupancy error: " + e.getMessage());
         }
     }
 

@@ -46,9 +46,49 @@ public class TicketManager {
         this.totalRevenue = ticketRepo.totalRevenue();
         if (!all.isEmpty())
             System.out.println("✅ Restored " + all.size() + " tickets from database.");
+        ticketRepo.restoreOccupancyFromDb(parkingLot);
+    }
+
+    private void exportTicketsToTxt() {
+        String fileName = "tickets_log.txt";
+        try (java.io.BufferedWriter writer = new java.io.BufferedWriter(new java.io.FileWriter(fileName))) {
+            writer.write("=== ALL TICKETS IN DATABASE ===");
+            writer.newLine();
+            writer.write("Generated: " + java.time.LocalDateTime.now());
+            writer.newLine();
+            writer.write("================================");
+            writer.newLine();
+
+            List<Ticket> all = ticketRepo.findAll();
+            if (all.isEmpty()) {
+                writer.write("No tickets found.");
+                writer.newLine();
+            } else {
+                for (Ticket t : all) {
+                    writer.write("Ticket ID  : " + t.getTicketId());          writer.newLine();
+                    writer.write("Plate      : " + t.getVehicle().getLicensePlate()); writer.newLine();
+                    writer.write("Type       : " + t.getVehicle().getType().getDisplayName()); writer.newLine();
+                    writer.write("Spot       : " + t.getSpot().getSpotId());  writer.newLine();
+                    writer.write("Status     : " + t.getStatus());            writer.newLine();
+                    writer.write("Entry      : " + t.getIssuedAt());          writer.newLine();
+                    writer.write("Exit       : " + (t.getExitTime() != null ? t.getExitTime() : "Still parked")); writer.newLine();
+                    writer.write("Fee        : " + String.format("%.2f", t.getFeeCharged())); writer.newLine();
+                    writer.write("Amount paid: " + String.format("%.2f", t.getAmountPaid())); writer.newLine();
+                    writer.write("--------------------------------"); writer.newLine();
+                }
+            }
+
+            writer.write("Total tickets: " + all.size()); writer.newLine();
+            writer.write("Total revenue: " + String.format("%.2f", ticketRepo.totalRevenue())); writer.newLine();
+
+            System.out.println("📄 Tickets exported to " + fileName);
+        } catch (java.io.IOException e) {
+            System.err.println("Could not write tickets log: " + e.getMessage());
+        }
     }
 
     public void saveSession() {
+        exportTicketsToTxt();
         System.out.println("💾 Session persisted to database.");
     }
 

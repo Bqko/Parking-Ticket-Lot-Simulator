@@ -25,9 +25,9 @@ import java.time.LocalDateTime;
 public class FeeCalculator {
 
     // ── Configuration (setters allow admin to change at runtime) ──────────
-    private double baseRatePerHour;      // Base hourly rate (e.g. 20.0 TRY)
-    private double dailyMaxRate;         // Cap per 24-hour period (e.g. 200.0 TRY)
-    private double lostTicketFee;        // Flat fee for lost tickets (e.g. 150.0 TRY)
+    private double baseRatePerHour;      // Base hourly rate (e.g. 20.0 USD)
+    private double dailyMaxRate;         // Cap per 24-hour period (e.g. 200.0 USD)
+    private double lostTicketFee;        // Flat fee for lost tickets (e.g. 150.0 USD)
     private int    gracePeriodMinutes;   // Free window after entry (e.g. 15 min)
     private double discountPercent;      // 0.0 = no discount, 50.0 = half price
 

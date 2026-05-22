@@ -71,6 +71,10 @@ public class ParkingSpot {
 
     // ── Object overrides ──────────────────────────────────────────────────
 
+    public void setOccupied(boolean occupied) {
+        this.occupied = occupied;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;

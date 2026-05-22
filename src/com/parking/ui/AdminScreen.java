@@ -101,7 +101,7 @@ public class AdminScreen {
         rateField = ParkingApp.styledField(String.valueOf(calc.getBaseRatePerHour()));
         rateField.setText(String.valueOf(calc.getBaseRatePerHour()));
         card.getChildren().add(buildSettingRow(
-                "💵", "Base Hourly Rate (TRY)",
+                "💵", "Base Hourly Rate (USD)",
                 "Charged per hour for a standard car.",
                 rateField, ParkingApp.ACCENT
         ));
@@ -112,7 +112,7 @@ public class AdminScreen {
         capField = ParkingApp.styledField(String.valueOf(calc.getDailyMaxRate()));
         capField.setText(String.valueOf(calc.getDailyMaxRate()));
         card.getChildren().add(buildSettingRow(
-                "📆", "Daily Maximum Cap (TRY)",
+                "📆", "Daily Maximum Cap (USD)",
                 "Maximum charged per 24-hour period, regardless of duration.",
                 capField, ParkingApp.INFO
         ));
@@ -145,7 +145,7 @@ public class AdminScreen {
         lostField = ParkingApp.styledField(String.valueOf(calc.getLostTicketFee()));
         lostField.setText(String.valueOf(calc.getLostTicketFee()));
         card.getChildren().add(buildSettingRow(
-                "🎫", "Lost Ticket Flat Fee (TRY)",
+                "🎫", "Lost Ticket Flat Fee (USD)",
                 "Flat fee charged when a customer loses their ticket.",
                 lostField, ParkingApp.DANGER
         ));
@@ -202,11 +202,11 @@ public class AdminScreen {
         card.setMinWidth(260);
         card.setMaxWidth(300);
 
-        currentRate     = summaryValue(fmt(calc.getBaseRatePerHour()) + " TRY/hr", ParkingApp.ACCENT);
-        currentCap      = summaryValue(fmt(calc.getDailyMaxRate())    + " TRY/day", ParkingApp.INFO);
+        currentRate     = summaryValue(fmt(calc.getBaseRatePerHour()) + " USD/hr", ParkingApp.ACCENT);
+        currentCap      = summaryValue(fmt(calc.getDailyMaxRate())    + " USD/day", ParkingApp.INFO);
         currentGrace    = summaryValue(calc.getGracePeriodMinutes()   + " min",     ParkingApp.SUCCESS);
-        currentDiscount = summaryValue(fmt(calc.getDiscountPercent())  + "%",        ParkingApp.WARNING);
-        currentLost     = summaryValue(fmt(calc.getLostTicketFee())    + " TRY",     ParkingApp.DANGER);
+        currentDiscount = summaryValue(fmt(calc.getDiscountPercent()) + "%",        ParkingApp.WARNING);
+        currentLost     = summaryValue(fmt(calc.getLostTicketFee())   + " USD",     ParkingApp.DANGER);
 
         VBox rows = new VBox(0);
         rows.setStyle(
@@ -275,7 +275,7 @@ public class AdminScreen {
         if (calc.getDiscountPercent() > 0) fee = calc.applyDiscount(fee, calc.getDiscountPercent());
         fee = Math.min(fee, calc.getDailyMaxRate());
 
-        Label l = new Label(String.format("%.2f TRY", fee));
+        Label l = new Label(String.format("%.2f USD", fee));
         l.setFont(Font.font("Georgia", FontWeight.BOLD, 26));
         l.setTextFill(Color.web(ParkingApp.TEXT_H));
         return l;
@@ -301,11 +301,11 @@ public class AdminScreen {
             ParkingApp.TICKET_MANAGER.saveFeeConfig();
 
             // Refresh summary labels
-            currentRate.setText(fmt(rate)     + " TRY/hr");
-            currentCap.setText(fmt(cap)       + " TRY/day");
+            currentRate.setText(fmt(rate)     + " USD/hr");
+            currentCap.setText(fmt(cap)       + " USD/day");
             currentGrace.setText(grace        + " min");
             currentDiscount.setText(fmt(discount) + "%");
-            currentLost.setText(fmt(lost)     + " TRY");
+            currentLost.setText(fmt(lost)     + " USD");
 
             showStatus("✓  Settings saved successfully! New rates apply from the next ticket.", ParkingApp.SUCCESS);
 
