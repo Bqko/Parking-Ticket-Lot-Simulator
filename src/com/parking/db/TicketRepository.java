@@ -7,7 +7,6 @@ import com.parking.model.ParkingSpot;
 import com.parking.model.Ticket;
 import com.parking.model.Vehicle;
 import com.parking.model.ParkingLot;
-import com.parking.model.ParkingSpot;
 
 import java.sql.*;
 import java.time.LocalDateTime;
@@ -128,7 +127,7 @@ public class TicketRepository {
             ps.setDouble(2, ticket.getAmountPaid());
             ps.setDouble(3, ticket.getFeeCharged());
             ps.setDouble(4, ticket.getChange());
-            ps.setInt(5, ticket.isPaid() ? 1 : 0);
+            ps.setInt(5, ticket.getAmountPaid() >= ticket.getFeeCharged() ? 1 : 0);
             ps.executeUpdate();
         } catch (SQLException e) {
             System.err.println("DB insert payment error: " + e.getMessage());
@@ -271,7 +270,7 @@ public class TicketRepository {
             ticket.closeOnExit();
         }
         if (status == TicketStatus.LOST) {
-            ticket.markLost();
+            ticket.markLost(fee, paid);
         }
 
         return ticket;

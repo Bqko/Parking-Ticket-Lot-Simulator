@@ -166,6 +166,33 @@ class TicketManagerTest {
     }
 
     @Test
+    @DisplayName("Lost ticket payment marks ticket lost and releases spot")
+    void lostTicket_releasesSpot() {
+        Vehicle car = new Vehicle("34 CAR 001", VehicleType.CAR);
+        Ticket ticket = manager.issueTicket(car);
+        double before = manager.getTotalRevenue();
+
+        double change = manager.processLostTicket(ticket.getTicketId(), 200.0);
+
+        assertEquals(TicketStatus.LOST, ticket.getStatus());
+        assertFalse(ticket.getSpot().isOccupied());
+        assertEquals(50.0, change, 0.01);
+        assertEquals(before + manager.getFeeCalculator().getLostTicketFee(),
+                manager.getTotalRevenue(), 0.01);
+        assertEquals(0, manager.getActiveTickets().size());
+    }
+
+    @Test
+    @DisplayName("Lost ticket underpayment throws exception")
+    void lostTicket_underpay() {
+        Vehicle car = new Vehicle("34 CAR 001", VehicleType.CAR);
+        Ticket ticket = manager.issueTicket(car);
+
+        assertThrows(IllegalArgumentException.class,
+                () -> manager.processLostTicket(ticket.getTicketId(), 100.0));
+    }
+
+    @Test
     @DisplayName("Exit moves ticket from active to session history")
     void exit_movesToHistory() {
         Vehicle car    = new Vehicle("34 CAR 001", VehicleType.CAR);
