@@ -304,12 +304,8 @@ public class PaymentScreen {
     private void handleExit() {
         if (currentTicket == null) return;
         try {
-            // For lost tickets, ticket is already marked LOST so we just release the spot
             if (!lostTicketMode) {
                 ParkingApp.TICKET_MANAGER.processExit(currentTicket.getTicketId());
-            } else {
-                // Release spot manually for lost ticket flow
-                com.parking.model.ParkingLot.getInstance().releaseSpot(currentTicket.getSpot());
             }
             exitBtn.setDisable(true);
             showStatus("🚗  Gate open! Spot " + currentTicket.getSpot().getSpotId() + " is now free.", ParkingApp.SUCCESS);

@@ -13,9 +13,10 @@ import java.sql.*;
  * Add sqlite-jdbc JAR to your project libraries:
  * File → Project Structure → Libraries → + → Java → sqlite-jdbc-3.45.x.jar
  *
- * <h3>Usage</h3>
+ * <h3>Default admin credentials</h3>
  * <pre>
- *   Connection conn = DatabaseManager.getInstance().getConnection();
+ *   Username : admin
+ *   Password : admin123
  * </pre>
  */
 public class DatabaseManager {
@@ -178,6 +179,20 @@ public class DatabaseManager {
                 );
             """);
 
+            // admins — operator accounts for the Admin Panel
+            st.execute("""
+                CREATE TABLE IF NOT EXISTS admins (
+                    admin_id      INTEGER PRIMARY KEY AUTOINCREMENT,
+                    username      TEXT    NOT NULL UNIQUE,
+                    password_hash TEXT    NOT NULL,
+                    display_name  TEXT    NOT NULL DEFAULT 'Administrator',
+                    role          TEXT    NOT NULL DEFAULT 'ADMIN',
+                    is_active     INTEGER NOT NULL DEFAULT 1,
+                    last_login    TEXT,
+                    created_at    TEXT    NOT NULL DEFAULT (datetime('now'))
+                );
+            """);
+
             System.out.println("✅ Database schema ready.");
 
         } catch (SQLException e) {
@@ -224,8 +239,62 @@ public class DatabaseManager {
                 """);
             }
 
+            rs = st.executeQuery("SELECT COUNT(*) FROM parking_spots");
+            if (rs.getInt(1) == 0) {
+                seedParkingSpots();
+            }
+
+            rs = st.executeQuery("SELECT COUNT(*) FROM admins");
+            if (rs.getInt(1) == 0) {
+                seedDefaultAdmin();
+            }
+
         } catch (SQLException e) {
             System.err.println("Warning: seed data error: " + e.getMessage());
+        }
+    }
+
+    private void seedParkingSpots() throws SQLException {
+        String sql = """
+            INSERT INTO parking_spots (spot_code, floor_number, spot_type, is_occupied)
+            VALUES (?, ?, ?, 0)
+        """;
+        String[][] spotLayout = {
+                {"M", "5", "MOTORCYCLE"},
+                {"C", "10", "COMPACT"},
+                {"S", "20", "STANDARD"},
+                {"L", "5", "LARGE"}
+        };
+
+        try (PreparedStatement ps = connection.prepareStatement(sql)) {
+            for (int floor = 0; floor < 3; floor++) {
+                for (String[] entry : spotLayout) {
+                    String prefix = entry[0];
+                    int count = Integer.parseInt(entry[1]);
+                    String spotType = entry[2];
+                    for (int i = 1; i <= count; i++) {
+                        ps.setString(1, String.format("F%d-%s%02d", floor, prefix, i));
+                        ps.setInt(2, floor);
+                        ps.setString(3, spotType);
+                        ps.addBatch();
+                    }
+                }
+            }
+            ps.executeBatch();
+        }
+    }
+
+    private void seedDefaultAdmin() throws SQLException {
+        String sql = """
+            INSERT INTO admins (username, password_hash, display_name, role)
+            VALUES (?, ?, ?, ?)
+        """;
+        try (PreparedStatement ps = connection.prepareStatement(sql)) {
+            ps.setString(1, "admin");
+            ps.setString(2, AdminRepository.hashPassword("admin123"));
+            ps.setString(3, "Administrator");
+            ps.setString(4, "ADMIN");
+            ps.executeUpdate();
         }
     }
 }

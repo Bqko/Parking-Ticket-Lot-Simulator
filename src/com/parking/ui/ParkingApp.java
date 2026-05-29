@@ -247,7 +247,8 @@ public class ParkingApp extends Application {
             case "entry"     -> new EntryScreen(this).build();
             case "payment"   -> new PaymentScreen(this).build();
             case "dashboard" -> new DashboardScreen(this).build();
-            case "admin"     -> new AdminScreen(this).build();
+            case "admin"     -> new AdminLoginScreen(this,
+                    () -> switchContent(new AdminScreen(this).build())).build();
             default          -> buildHome();
         };
 
@@ -259,6 +260,19 @@ public class ParkingApp extends Application {
             Animations.pageExit(old, () -> {
                 contentArea.getChildren().setAll(page);
                 Animations.pageEnter(page);
+            });
+        }
+    }
+
+    void switchContent(javafx.scene.Node newPage) {
+        if (contentArea.getChildren().isEmpty()) {
+            contentArea.getChildren().setAll(newPage);
+            Animations.pageEnter(newPage);
+        } else {
+            javafx.scene.Node old = contentArea.getChildren().get(0);
+            Animations.pageExit(old, () -> {
+                contentArea.getChildren().setAll(newPage);
+                Animations.pageEnter(newPage);
             });
         }
     }

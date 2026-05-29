@@ -137,6 +137,25 @@ class TicketTest {
     }
 
     @Test
+    @DisplayName("Marking lost ticket with payment records fee and amount")
+    void markLost_withPayment() {
+        ticket.markLost(150.0, 200.0);
+
+        assertEquals(TicketStatus.LOST, ticket.getStatus());
+        assertEquals(150.0, ticket.getFeeCharged(), 0.001);
+        assertEquals(200.0, ticket.getAmountPaid(), 0.001);
+        assertEquals(50.0, ticket.getChange(), 0.001);
+        assertNotNull(ticket.getExitTime());
+    }
+
+    @Test
+    @DisplayName("Lost ticket underpayment throws exception")
+    void markLost_underpay() {
+        assertThrows(IllegalArgumentException.class,
+                () -> ticket.markLost(150.0, 100.0));
+    }
+
+    @Test
     @DisplayName("Marking paid ticket as lost → throws exception")
     void markLost_afterPay() {
         ticket.pay(20.0, 20.0);

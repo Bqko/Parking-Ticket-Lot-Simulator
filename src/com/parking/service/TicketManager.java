@@ -134,11 +134,15 @@ public class TicketManager {
     public double processLostTicket(String ticketId, double amountPaid) {
         Ticket ticket  = getTicketOrThrow(ticketId);
         double flatFee = feeCalculator.getLostTicketFee();
-        ticket.markLost();
+
+        ticket.markLost(flatFee, amountPaid);
+        parkingLot.releaseSpot(ticket.getSpot());
         totalRevenue += flatFee;
         ticketRepo.update(ticket);
+        ticketRepo.insertPayment(ticket);
+        OccupancyObserver.getInstance().check();
         System.out.printf("⚠️  Lost ticket fee: %.2f%n", flatFee);
-        return Math.max(0, amountPaid - flatFee);
+        return ticket.getChange();
     }
 
     // ── Exit ──────────────────────────────────────────────────────────────

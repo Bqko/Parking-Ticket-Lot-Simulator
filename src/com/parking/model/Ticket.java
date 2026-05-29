@@ -90,6 +90,23 @@ public class Ticket {
     }
 
     /**
+     * Marks the ticket as lost and records the flat lost-ticket payment.
+     */
+    public void markLost(double fee, double amount) {
+        if (status != TicketStatus.ACTIVE) {
+            throw new IllegalStateException("Only ACTIVE tickets can be marked lost.");
+        }
+        if (amount < fee) {
+            throw new IllegalArgumentException(
+                    String.format("Insufficient payment. Fee=%.2f, Paid=%.2f", fee, amount));
+        }
+        this.feeCharged = fee;
+        this.amountPaid = amount;
+        this.exitTime = LocalDateTime.now();
+        this.status = TicketStatus.LOST;
+    }
+
+    /**
      * Returns the change due to the customer (amount paid − fee charged).
      */
     public double getChange() {

@@ -1,5 +1,6 @@
 package com.parking.ui;
 
+import com.parking.db.CustomerRepository;
 import com.parking.enums.VehicleType;
 import com.parking.model.Ticket;
 import com.parking.model.Vehicle;
@@ -14,13 +15,19 @@ import javafx.scene.text.*;
 public class EntryScreen {
 
     private final ParkingApp app;
+    private final CustomerRepository customerRepo;
 
     private TextField   plateField;
+    private TextField   nameField;
+    private TextField   phoneField;
     private ToggleGroup typeGroup;
     private Label       statusLabel;
     private VBox        resultCard;
 
-    public EntryScreen(ParkingApp app) { this.app = app; }
+    public EntryScreen(ParkingApp app) {
+        this.app = app;
+        this.customerRepo = new CustomerRepository();
+    }
 
     Node build() {
         ScrollPane sp = new ScrollPane();
@@ -73,7 +80,21 @@ public class EntryScreen {
 
         // License plate field
         plateField = ParkingApp.styledField("e.g.  34 ABC 001");
+        plateField.focusedProperty().addListener((obs, wasFocused, isFocused) -> {
+            if (!isFocused) loadKnownCustomer();
+        });
+        plateField.setOnAction(e -> loadKnownCustomer());
         VBox plateGroup = ParkingApp.fieldGroup("LICENSE PLATE", plateField);
+
+        nameField = ParkingApp.styledField("Customer name");
+        phoneField = ParkingApp.styledField("Phone number");
+        VBox nameGroup = ParkingApp.fieldGroup("CUSTOMER NAME", nameField);
+        VBox phoneGroup = ParkingApp.fieldGroup("PHONE NUMBER", phoneField);
+        HBox customerRow = new HBox(10, nameGroup, phoneGroup);
+        HBox.setHgrow(nameGroup, Priority.ALWAYS);
+        HBox.setHgrow(phoneGroup, Priority.ALWAYS);
+        nameGroup.setMaxWidth(Double.MAX_VALUE);
+        phoneGroup.setMaxWidth(Double.MAX_VALUE);
 
         // Vehicle type selector
         Label typeLabel = new Label("VEHICLE TYPE");
@@ -105,6 +126,8 @@ public class EntryScreen {
         Button clear = ParkingApp.ghostBtn("Clear");
         clear.setOnAction(e -> {
             plateField.clear();
+            nameField.clear();
+            phoneField.clear();
             statusLabel.setVisible(false);
             resultCard.setVisible(false);
         });
@@ -113,7 +136,7 @@ public class EntryScreen {
         HBox.setHgrow(submit, Priority.ALWAYS);
         btnRow.getChildren().addAll(submit, clear);
 
-        card.getChildren().addAll(plateGroup, typeGroup2, statusLabel, btnRow);
+        card.getChildren().addAll(plateGroup, customerRow, typeGroup2, statusLabel, btnRow);
         return card;
     }
 
@@ -144,18 +167,57 @@ public class EntryScreen {
         try {
             Vehicle vehicle = new Vehicle(plate, type);
             Ticket  ticket  = ParkingApp.TICKET_MANAGER.issueTicket(vehicle);
+            String customerName = normalizeCustomerName(nameField.getText());
+            String customerPhone = phoneField.getText().trim();
+            customerRepo.updateCustomerInfo(plate, customerName, customerPhone);
 
             showStatus("✓  Ticket issued successfully!", ParkingApp.SUCCESS);
-            populateResult(ticket);
+            populateResult(ticket, customerName, customerPhone);
             Animations.cardPop(resultCard);
             plateField.clear();
+            nameField.clear();
+            phoneField.clear();
 
         } catch (IllegalStateException e) {
+            showStatus("✗  " + e.getMessage(), ParkingApp.DANGER);
+        } catch (IllegalArgumentException e) {
             showStatus("✗  " + e.getMessage(), ParkingApp.DANGER);
         }
     }
 
-    private void populateResult(Ticket t) {
+    private void loadKnownCustomer() {
+        String plate = plateField.getText().trim().toUpperCase();
+        if (plate.isBlank()) return;
+
+        CustomerRepository.CustomerRecord customer = customerRepo.findByPlate(plate);
+        if (customer == null) return;
+
+        nameField.setText(customer.fullName.equals("Guest") ? "" : customer.fullName);
+        phoneField.setText(customer.phone);
+
+        try {
+            selectVehicleType(VehicleType.valueOf(customer.vehicleType));
+            showStatus("Known customer loaded from database.", ParkingApp.INFO);
+        } catch (IllegalArgumentException ignored) {
+            showStatus("Known customer loaded from database.", ParkingApp.INFO);
+        }
+    }
+
+    private void selectVehicleType(VehicleType type) {
+        for (Toggle toggle : typeGroup.getToggles()) {
+            if (toggle.getUserData() == type) {
+                typeGroup.selectToggle(toggle);
+                return;
+            }
+        }
+    }
+
+    private String normalizeCustomerName(String rawName) {
+        String trimmed = rawName == null ? "" : rawName.trim();
+        return trimmed.isBlank() ? "Guest" : trimmed;
+    }
+
+    private void populateResult(Ticket t, String customerName, String customerPhone) {
         resultCard.getChildren().clear();
 
         // Title row
@@ -198,15 +260,22 @@ public class EntryScreen {
                         "-fx-background-radius: 10;"
         );
         details.getChildren().addAll(
-                detailRow("License Plate", t.getVehicle().getLicensePlate(), false),
-                detailRow("Vehicle Type",  t.getVehicle().getType().getDisplayName(), true),
-                detailRow("Assigned Spot", t.getSpot().getSpotId(), false),
-                detailRow("Floor",         "Floor " + t.getSpot().getFloor(), true),
-                detailRow("Entry Time",    t.getIssuedAt().toLocalTime().toString(), false)
+                detailRow("Customer",      formatCustomer(customerName, customerPhone), false),
+                detailRow("License Plate", t.getVehicle().getLicensePlate(), true),
+                detailRow("Vehicle Type",  t.getVehicle().getType().getDisplayName(), false),
+                detailRow("Assigned Spot", t.getSpot().getSpotId(), true),
+                detailRow("Floor",         "Floor " + t.getSpot().getFloor(), false),
+                detailRow("Entry Time",    t.getIssuedAt().toLocalTime().toString(), true)
         );
 
         resultCard.getChildren().addAll(titleRow, sep, idBox, details);
         resultCard.setVisible(true);
+    }
+
+    private String formatCustomer(String name, String phone) {
+        String safeName = normalizeCustomerName(name);
+        String safePhone = phone == null ? "" : phone.trim();
+        return safePhone.isBlank() ? safeName : safeName + " · " + safePhone;
     }
 
     private HBox detailRow(String key, String value, boolean shaded) {
