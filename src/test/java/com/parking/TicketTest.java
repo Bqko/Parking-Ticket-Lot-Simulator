@@ -1,8 +1,10 @@
 package com.parking;
 
+import com.parking.db.DatabaseManager;
 import com.parking.enums.SpotType;
 import com.parking.enums.TicketStatus;
 import com.parking.enums.VehicleType;
+import com.parking.model.ParkingLot;
 import com.parking.model.ParkingSpot;
 import com.parking.model.Ticket;
 import com.parking.model.Vehicle;
@@ -19,13 +21,19 @@ class TicketTest {
 
     @BeforeEach
     void setUp() {
+        DatabaseManager.useInMemoryDatabase();
+        ParkingLot.resetInstance();
         car    = new Vehicle("34 ABC 001", VehicleType.CAR);
         spot   = new ParkingSpot("F0-S01", 0, SpotType.STANDARD);
         spot.park(car);
         ticket = new Ticket(car, spot);
     }
 
-    // ── Construction ──────────────────────────────────────────────────────
+    @AfterEach
+    void tearDown() {
+        DatabaseManager.getInstance().close();
+        ParkingLot.resetInstance();
+    }
 
     @Test
     @DisplayName("New ticket starts as ACTIVE")
@@ -68,8 +76,6 @@ class TicketTest {
                 () -> new Ticket(car, null));
     }
 
-    // ── Payment ───────────────────────────────────────────────────────────
-
     @Test
     @DisplayName("Paying correct amount → status becomes PAID")
     void pay_exactAmount() {
@@ -109,8 +115,6 @@ class TicketTest {
         assertTrue(ticket.isPaid());
     }
 
-    // ── Exit ──────────────────────────────────────────────────────────────
-
     @Test
     @DisplayName("Closing after payment → status becomes EXITED")
     void closeOnExit_afterPay() {
@@ -127,8 +131,6 @@ class TicketTest {
                 () -> ticket.closeOnExit());
     }
 
-    // ── Lost ticket ───────────────────────────────────────────────────────
-
     @Test
     @DisplayName("Marking active ticket as lost → status becomes LOST")
     void markLost_fromActive() {
@@ -143,8 +145,6 @@ class TicketTest {
         assertThrows(IllegalStateException.class,
                 () -> ticket.markLost());
     }
-
-    // ── Receipt ───────────────────────────────────────────────────────────
 
     @Test
     @DisplayName("Receipt string contains ticket ID and plate")

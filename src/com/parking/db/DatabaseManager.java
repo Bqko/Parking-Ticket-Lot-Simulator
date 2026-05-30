@@ -13,6 +13,12 @@ import java.sql.*;
  * Add sqlite-jdbc JAR to your project libraries:
  * File → Project Structure → Libraries → + → Java → sqlite-jdbc-3.45.x.jar
  *
+ * <h3>Default admin credentials</h3>
+ * <pre>
+ *   Username : admin
+ *   Password : admin123
+ * </pre>
+ *
  * <h3>Usage</h3>
  * <pre>
  *   Connection conn = DatabaseManager.getInstance().getConnection();
@@ -20,14 +26,20 @@ import java.sql.*;
  */
 public class DatabaseManager {
 
-    private static final String DB_URL  = "jdbc:sqlite:parking.db";
+    private static final String DB_URL = "jdbc:sqlite:parking.db";
     private static DatabaseManager instance;
     private Connection connection;
 
     // ── Singleton ─────────────────────────────────────────────────────────
 
     private DatabaseManager() {
-        connect();
+        connectTo(DB_URL);
+        createTables();
+        seedData();
+    }
+
+    private DatabaseManager(String url) {
+        connectTo(url);
         createTables();
         seedData();
     }
@@ -37,17 +49,30 @@ public class DatabaseManager {
         return instance;
     }
 
+    /**
+     * Switches to a fresh in-memory SQLite database.
+     * Call this at the start of every test class BEFORE getInstance().
+     * In-memory DB is isolated — it never touches parking.db.
+     */
+    public static synchronized void useInMemoryDatabase() {
+        if (instance != null) {
+            instance.close();
+            instance = null;
+        }
+        instance = new DatabaseManager("jdbc:sqlite::memory:");
+    }
+
     // ── Connection ────────────────────────────────────────────────────────
 
-    private void connect() {
+    private void connectTo(String url) {
         try {
             Class.forName("org.sqlite.JDBC");
-            connection = DriverManager.getConnection(DB_URL);
+            connection = DriverManager.getConnection(url);
             try (Statement st = connection.createStatement()) {
                 st.execute("PRAGMA journal_mode=WAL;");
                 st.execute("PRAGMA foreign_keys=ON;");
             }
-            System.out.println("✅ Connected to SQLite database: parking.db");
+            System.out.println("✅ Connected to SQLite: " + url);
         } catch (ClassNotFoundException e) {
             throw new RuntimeException("SQLite driver JAR not found. Add sqlite-jdbc JAR to your libraries.", e);
         } catch (SQLException e) {
@@ -57,9 +82,9 @@ public class DatabaseManager {
 
     public Connection getConnection() {
         try {
-            if (connection == null || connection.isClosed()) connect();
+            if (connection == null || connection.isClosed()) connectTo(DB_URL);
         } catch (SQLException e) {
-            connect();
+            connectTo(DB_URL);
         }
         return connection;
     }
@@ -178,6 +203,21 @@ public class DatabaseManager {
                 );
             """);
 
+            // admins — operator accounts for the Admin Panel
+            // Passwords stored as SHA-256 hex hashes, never plain text.
+            st.execute("""
+                CREATE TABLE IF NOT EXISTS admins (
+                    admin_id      INTEGER PRIMARY KEY AUTOINCREMENT,
+                    username      TEXT    NOT NULL UNIQUE,
+                    password_hash TEXT    NOT NULL,
+                    display_name  TEXT    NOT NULL DEFAULT 'Administrator',
+                    role          TEXT    NOT NULL DEFAULT 'ADMIN',
+                    is_active     INTEGER NOT NULL DEFAULT 1,
+                    last_login    TEXT,
+                    created_at    TEXT    NOT NULL DEFAULT (datetime('now'))
+                );
+            """);
+
             System.out.println("✅ Database schema ready.");
 
         } catch (SQLException e) {
@@ -222,6 +262,60 @@ public class DatabaseManager {
                          grace_period_minutes, discount_percent)
                     VALUES (20.0, 200.0, 150.0, 15, 0.0);
                 """);
+            }
+
+            // Seed parking spots to mirror ParkingLot.initializeSpots()
+            // Layout per floor: 5 MOTORCYCLE, 10 COMPACT, 20 STANDARD, 5 LARGE
+            // 3 floors → 120 spots total
+            rs = st.executeQuery("SELECT COUNT(*) FROM parking_spots");
+            if (rs.getInt(1) == 0) {
+                String insertSpot =
+                        "INSERT INTO parking_spots (spot_code, floor_number, spot_type, is_occupied) " +
+                                "VALUES (?, ?, ?, 0)";
+
+                String[][] spotLayout = {
+                        { "M",  "5",  "MOTORCYCLE" },
+                        { "C", "10",  "COMPACT"    },
+                        { "S", "20",  "STANDARD"   },
+                        { "L",  "5",  "LARGE"      }
+                };
+
+                try (PreparedStatement ps = connection.prepareStatement(insertSpot)) {
+                    for (int floor = 0; floor < 3; floor++) {
+                        for (String[] entry : spotLayout) {
+                            String prefix   = entry[0];
+                            int    count    = Integer.parseInt(entry[1]);
+                            String spotType = entry[2];
+                            for (int i = 1; i <= count; i++) {
+                                String spotCode = String.format("F%d-%s%02d", floor, prefix, i);
+                                ps.setString(1, spotCode);
+                                ps.setInt(2, floor);
+                                ps.setString(3, spotType);
+                                ps.addBatch();
+                            }
+                        }
+                    }
+                    ps.executeBatch();
+                    System.out.println("✅ Parking spots seeded (120 spots across 3 floors).");
+                }
+            }
+
+            // Seed default admin account if table is empty
+            // Default credentials: username=admin / password=admin123
+            rs = st.executeQuery("SELECT COUNT(*) FROM admins");
+            if (rs.getInt(1) == 0) {
+                String defaultHash = AdminRepository.hashPassword("admin123");
+                String insertAdmin =
+                        "INSERT INTO admins (username, password_hash, display_name, role) " +
+                                "VALUES (?, ?, ?, ?)";
+                try (PreparedStatement ps = connection.prepareStatement(insertAdmin)) {
+                    ps.setString(1, "admin");
+                    ps.setString(2, defaultHash);
+                    ps.setString(3, "Administrator");
+                    ps.setString(4, "ADMIN");
+                    ps.executeUpdate();
+                    System.out.println("✅ Default admin account seeded (username: admin / password: admin123).");
+                }
             }
 
         } catch (SQLException e) {

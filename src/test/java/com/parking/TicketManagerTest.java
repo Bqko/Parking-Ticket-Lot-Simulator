@@ -1,5 +1,6 @@
 package com.parking;
 
+import com.parking.db.DatabaseManager;
 import com.parking.enums.TicketStatus;
 import com.parking.enums.VehicleType;
 import com.parking.model.ParkingLot;
@@ -11,10 +12,6 @@ import org.junit.jupiter.api.*;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-/**
- * Integration tests for {@link TicketManager}.
- * Tests the full entry → payment → exit lifecycle.
- */
 @DisplayName("TicketManager Tests")
 class TicketManagerTest {
 
@@ -22,21 +19,24 @@ class TicketManagerTest {
 
     @BeforeEach
     void setUp() {
+        DatabaseManager.useInMemoryDatabase();
         ParkingLot.resetInstance();
-        // Use a calculator with no grace period so fees are predictable
         FeeCalculator calc = new FeeCalculator();
         calc.setGracePeriodMinutes(0);
         manager = new TicketManager(calc);
     }
 
-    // ── Issue ticket ──────────────────────────────────────────────────────
+    @AfterEach
+    void tearDown() {
+        DatabaseManager.getInstance().close();
+        ParkingLot.resetInstance();
+    }
 
     @Test
     @DisplayName("Issuing a ticket returns a non-null ACTIVE ticket")
     void issue_returnsActiveTicket() {
         Vehicle car = new Vehicle("34 CAR 001", VehicleType.CAR);
         Ticket ticket = manager.issueTicket(car);
-
         assertNotNull(ticket);
         assertEquals(TicketStatus.ACTIVE, ticket.getStatus());
         assertNotNull(ticket.getTicketId());
@@ -48,7 +48,6 @@ class TicketManagerTest {
     void issue_findableById() {
         Vehicle car = new Vehicle("34 CAR 001", VehicleType.CAR);
         Ticket ticket = manager.issueTicket(car);
-
         assertTrue(manager.findTicket(ticket.getTicketId()).isPresent());
     }
 
@@ -57,7 +56,6 @@ class TicketManagerTest {
     void issue_duplicateVehicle() {
         Vehicle car = new Vehicle("34 CAR 001", VehicleType.CAR);
         manager.issueTicket(car);
-
         assertThrows(IllegalStateException.class,
                 () -> manager.issueTicket(new Vehicle("34 CAR 001", VehicleType.CAR)));
     }
@@ -68,7 +66,6 @@ class TicketManagerTest {
         manager.issueTicket(new Vehicle("34 CAR 001", VehicleType.CAR));
         manager.issueTicket(new Vehicle("34 CAR 002", VehicleType.CAR));
         manager.issueTicket(new Vehicle("34 MOT 001", VehicleType.MOTORCYCLE));
-
         assertEquals(3, manager.getActiveTickets().size());
     }
 
@@ -80,17 +77,13 @@ class TicketManagerTest {
         assertEquals(before - 1, ParkingLot.getInstance().getAvailableCount());
     }
 
-    // ── Payment ───────────────────────────────────────────────────────────
-
     @Test
     @DisplayName("Payment with exact amount → ticket is PAID, change is 0")
     void payment_exactAmount() {
         Vehicle car    = new Vehicle("34 CAR 001", VehicleType.CAR);
         Ticket  ticket = manager.issueTicket(car);
         double  fee    = manager.previewFee(ticket.getTicketId());
-
-        double change = manager.processPayment(ticket.getTicketId(), fee);
-
+        double  change = manager.processPayment(ticket.getTicketId(), fee);
         assertEquals(0.0, change, 0.001);
         assertEquals(TicketStatus.PAID, ticket.getStatus());
     }
@@ -101,9 +94,7 @@ class TicketManagerTest {
         Vehicle car    = new Vehicle("34 CAR 001", VehicleType.CAR);
         Ticket  ticket = manager.issueTicket(car);
         double  fee    = manager.previewFee(ticket.getTicketId());
-
-        double change = manager.processPayment(ticket.getTicketId(), fee + 50.0);
-
+        double  change = manager.processPayment(ticket.getTicketId(), fee + 50.0);
         assertEquals(50.0, change, 0.01);
     }
 
@@ -113,7 +104,6 @@ class TicketManagerTest {
         Vehicle car    = new Vehicle("34 CAR 001", VehicleType.CAR);
         Ticket  ticket = manager.issueTicket(car);
         double  fee    = manager.previewFee(ticket.getTicketId());
-
         if (fee > 0) {
             assertThrows(IllegalArgumentException.class,
                     () -> manager.processPayment(ticket.getTicketId(), fee - 1.0));
@@ -123,12 +113,11 @@ class TicketManagerTest {
     @Test
     @DisplayName("Payment increases total revenue")
     void payment_increasesRevenue() {
-        double before  = manager.getTotalRevenue();
+        double  before = manager.getTotalRevenue();
         Vehicle car    = new Vehicle("34 CAR 001", VehicleType.CAR);
         Ticket  ticket = manager.issueTicket(car);
         double  fee    = manager.previewFee(ticket.getTicketId());
         manager.processPayment(ticket.getTicketId(), fee + 10.0);
-
         assertTrue(manager.getTotalRevenue() >= before);
     }
 
@@ -139,8 +128,6 @@ class TicketManagerTest {
                 () -> manager.processPayment("UNKNOWN-ID", 100.0));
     }
 
-    // ── Exit ──────────────────────────────────────────────────────────────
-
     @Test
     @DisplayName("Exit after payment → ticket is EXITED and spot is free")
     void exit_afterPayment() {
@@ -148,9 +135,7 @@ class TicketManagerTest {
         Ticket  ticket = manager.issueTicket(car);
         double  fee    = manager.previewFee(ticket.getTicketId());
         manager.processPayment(ticket.getTicketId(), fee + 10);
-
         manager.processExit(ticket.getTicketId());
-
         assertEquals(TicketStatus.EXITED, ticket.getStatus());
         assertFalse(ticket.getSpot().isOccupied());
     }
@@ -160,7 +145,6 @@ class TicketManagerTest {
     void exit_withoutPayment() {
         Vehicle car    = new Vehicle("34 CAR 001", VehicleType.CAR);
         Ticket  ticket = manager.issueTicket(car);
-
         assertThrows(IllegalStateException.class,
                 () -> manager.processExit(ticket.getTicketId()));
     }
@@ -173,7 +157,6 @@ class TicketManagerTest {
         double  fee    = manager.previewFee(ticket.getTicketId());
         manager.processPayment(ticket.getTicketId(), fee + 10);
         manager.processExit(ticket.getTicketId());
-
         assertEquals(0, manager.getActiveTickets().size());
         assertEquals(1, manager.getSessionHistory().size());
     }
@@ -181,34 +164,27 @@ class TicketManagerTest {
     @Test
     @DisplayName("Spot is available again after exit")
     void exit_releasesSpot() {
-        long before = ParkingLot.getInstance().getAvailableCount();
+        long    before = ParkingLot.getInstance().getAvailableCount();
         Vehicle car    = new Vehicle("34 CAR 001", VehicleType.CAR);
         Ticket  ticket = manager.issueTicket(car);
         double  fee    = manager.previewFee(ticket.getTicketId());
         manager.processPayment(ticket.getTicketId(), fee + 10);
         manager.processExit(ticket.getTicketId());
-
         assertEquals(before, ParkingLot.getInstance().getAvailableCount());
     }
-
-    // ── Full lifecycle ────────────────────────────────────────────────────
 
     @Test
     @DisplayName("Full lifecycle: entry → payment → exit completes cleanly")
     void fullLifecycle() {
         Vehicle car    = new Vehicle("34 CAR 001", VehicleType.CAR);
-
-        // Entry
-        Ticket ticket = manager.issueTicket(car);
+        Ticket  ticket = manager.issueTicket(car);
         assertEquals(TicketStatus.ACTIVE, ticket.getStatus());
         assertEquals(1, manager.getActiveTickets().size());
 
-        // Payment
         double fee = manager.previewFee(ticket.getTicketId());
         manager.processPayment(ticket.getTicketId(), fee + 20);
         assertEquals(TicketStatus.PAID, ticket.getStatus());
 
-        // Exit
         manager.processExit(ticket.getTicketId());
         assertEquals(TicketStatus.EXITED, ticket.getStatus());
         assertEquals(0, manager.getActiveTickets().size());

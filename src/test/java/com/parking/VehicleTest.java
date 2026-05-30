@@ -1,6 +1,8 @@
 package com.parking;
 
+import com.parking.db.DatabaseManager;
 import com.parking.enums.VehicleType;
+import com.parking.model.ParkingLot;
 import com.parking.model.Vehicle;
 import org.junit.jupiter.api.*;
 
@@ -11,7 +13,17 @@ import static org.junit.jupiter.api.Assertions.*;
 @DisplayName("Vehicle Tests")
 class VehicleTest {
 
-    // ── Construction ──────────────────────────────────────────────────────
+    @BeforeEach
+    void setUp() {
+        DatabaseManager.useInMemoryDatabase();
+        ParkingLot.resetInstance();
+    }
+
+    @AfterEach
+    void tearDown() {
+        DatabaseManager.getInstance().close();
+        ParkingLot.resetInstance();
+    }
 
     @Test
     @DisplayName("Valid vehicle is created with correct fields")
@@ -58,8 +70,6 @@ class VehicleTest {
                 () -> new Vehicle("34 ABC 001", null));
     }
 
-    // ── Rate multiplier ───────────────────────────────────────────────────
-
     @Test
     @DisplayName("Car rate multiplier is 1.0")
     void multiplier_car() {
@@ -80,8 +90,6 @@ class VehicleTest {
         Vehicle v = new Vehicle("34 TRK 001", VehicleType.TRUCK);
         assertEquals(2.0, v.getRateMultiplier(), 0.001);
     }
-
-    // ── Equality ──────────────────────────────────────────────────────────
 
     @Test
     @DisplayName("Two vehicles with same plate are equal")

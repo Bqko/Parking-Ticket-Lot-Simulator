@@ -65,7 +65,6 @@ public class ParkingApp extends Application {
         // Register occupancy observer to update sidebar on every entry/exit
         com.parking.service.OccupancyObserver.getInstance().addListener(event ->
                 javafx.application.Platform.runLater(() -> {
-                    // Rebuild sidebar status strip on occupancy change
                     if (sidebar != null) {
                         var children = sidebar.getChildren();
                         if (!children.isEmpty())
@@ -247,7 +246,8 @@ public class ParkingApp extends Application {
             case "entry"     -> new EntryScreen(this).build();
             case "payment"   -> new PaymentScreen(this).build();
             case "dashboard" -> new DashboardScreen(this).build();
-            case "admin"     -> new AdminScreen(this).build();
+            case "admin"     -> new AdminLoginScreen(this,
+                    () -> switchContent(new AdminScreen(this).build())).build();
             default          -> buildHome();
         };
 
@@ -259,6 +259,24 @@ public class ParkingApp extends Application {
             Animations.pageExit(old, () -> {
                 contentArea.getChildren().setAll(page);
                 Animations.pageEnter(page);
+            });
+        }
+    }
+
+    /**
+     * Replaces the content area with a new page using the standard
+     * exit/enter animation. Used by AdminLoginScreen to swap itself
+     * out for AdminScreen after a successful login.
+     */
+    void switchContent(javafx.scene.Node newPage) {
+        if (contentArea.getChildren().isEmpty()) {
+            contentArea.getChildren().setAll(newPage);
+            Animations.pageEnter(newPage);
+        } else {
+            javafx.scene.Node old = contentArea.getChildren().get(0);
+            Animations.pageExit(old, () -> {
+                contentArea.getChildren().setAll(newPage);
+                Animations.pageEnter(newPage);
             });
         }
     }
@@ -290,7 +308,7 @@ public class ParkingApp extends Application {
         heroSub.setTextFill(Color.web(TEXT_M));
         hero.getChildren().addAll(hi, heroTitle, heroSub);
 
-        // Stats row — cards grow equally
+        // Stats row
         Label statsHdr = sectionTitle("QUICK STATS");
         var lot = com.parking.model.ParkingLot.getInstance();
         HBox stats = new HBox(14);
@@ -305,7 +323,7 @@ public class ParkingApp extends Application {
         }
         stats.getChildren().addAll(sc1, sc2, sc3, sc4);
 
-        // Action cards — grow equally
+        // Action cards
         Label actionsHdr = sectionTitle("QUICK ACTIONS");
         HBox actions = new HBox(16);
         var ac1 = actionCard("🚗", "Vehicle Entry",  "Record arrival & issue ticket", ACCENT,  "entry");
@@ -321,12 +339,9 @@ public class ParkingApp extends Application {
         page.getChildren().addAll(hero, statsHdr, stats, actionsHdr, actions);
         sp.setContent(page);
 
-        // Stagger entrance animations after layout
         javafx.application.Platform.runLater(() -> {
-            Animations.staggerCards(80, 60,
-                    sc1, sc2, sc3, sc4);
-            Animations.staggerCards(320, 70,
-                    ac1, ac2, ac3, ac4);
+            Animations.staggerCards(80, 60,  sc1, sc2, sc3, sc4);
+            Animations.staggerCards(320, 70, ac1, ac2, ac3, ac4);
         });
 
         return sp;

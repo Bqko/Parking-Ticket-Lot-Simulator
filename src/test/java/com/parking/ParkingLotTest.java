@@ -1,5 +1,6 @@
 package com.parking;
 
+import com.parking.db.DatabaseManager;
 import com.parking.enums.SpotType;
 import com.parking.enums.VehicleType;
 import com.parking.model.ParkingLot;
@@ -16,12 +17,16 @@ class ParkingLotTest {
 
     @BeforeEach
     void setUp() {
-        // Reset singleton between tests so each starts fresh
+        DatabaseManager.useInMemoryDatabase();
         ParkingLot.resetInstance();
         lot = ParkingLot.getInstance();
     }
 
-    // ── Singleton ─────────────────────────────────────────────────────────
+    @AfterEach
+    void tearDown() {
+        DatabaseManager.getInstance().close();
+        ParkingLot.resetInstance();
+    }
 
     @Test
     @DisplayName("getInstance() always returns the same object")
@@ -30,8 +35,6 @@ class ParkingLotTest {
         ParkingLot b = ParkingLot.getInstance();
         assertSame(a, b);
     }
-
-    // ── Initial state ─────────────────────────────────────────────────────
 
     @Test
     @DisplayName("Lot is initialised with spots")
@@ -51,8 +54,6 @@ class ParkingLotTest {
     void initial_zeroOccupancy() {
         assertEquals(0.0, lot.getOccupancyRate(), 0.001);
     }
-
-    // ── Spot assignment ───────────────────────────────────────────────────
 
     @Test
     @DisplayName("Assigning a spot reduces available count by 1")
@@ -89,22 +90,16 @@ class ParkingLotTest {
         assertEquals(SpotType.LARGE, spot.getSpotType());
     }
 
-    // ── Spot release ──────────────────────────────────────────────────────
-
     @Test
     @DisplayName("Releasing a spot makes it available again")
     void release_spotsBecomesAvailable() {
         Vehicle car = new Vehicle("34 CAR 001", VehicleType.CAR);
         ParkingSpot spot = lot.assignSpot(car);
         long occupiedBefore = lot.getOccupiedCount();
-
         lot.releaseSpot(spot);
-
         assertFalse(spot.isOccupied());
         assertEquals(occupiedBefore - 1, lot.getOccupiedCount());
     }
-
-    // ── Availability check ────────────────────────────────────────────────
 
     @Test
     @DisplayName("hasAvailableSpot returns true initially for all types")
@@ -113,8 +108,6 @@ class ParkingLotTest {
         assertTrue(lot.hasAvailableSpot(VehicleType.MOTORCYCLE));
         assertTrue(lot.hasAvailableSpot(VehicleType.TRUCK));
     }
-
-    // ── Add / remove spots ────────────────────────────────────────────────
 
     @Test
     @DisplayName("Adding a new spot increases total count")
@@ -157,8 +150,6 @@ class ParkingLotTest {
         assertThrows(java.util.NoSuchElementException.class,
                 () -> lot.removeSpot("DOES-NOT-EXIST"));
     }
-
-    // ── Floor queries ─────────────────────────────────────────────────────
 
     @Test
     @DisplayName("getSpotsOnFloor returns only spots on that floor")

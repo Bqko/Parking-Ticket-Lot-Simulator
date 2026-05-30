@@ -1,5 +1,6 @@
 package com.parking.ui;
 
+import com.parking.db.CustomerRepository;
 import com.parking.enums.VehicleType;
 import com.parking.model.Ticket;
 import com.parking.model.Vehicle;
@@ -13,14 +14,20 @@ import javafx.scene.text.*;
 
 public class EntryScreen {
 
-    private final ParkingApp app;
+    private final ParkingApp         app;
+    private final CustomerRepository customerRepo;
 
     private TextField   plateField;
+    private TextField   nameField;
+    private TextField   phoneField;
     private ToggleGroup typeGroup;
     private Label       statusLabel;
     private VBox        resultCard;
 
-    public EntryScreen(ParkingApp app) { this.app = app; }
+    public EntryScreen(ParkingApp app) {
+        this.app          = app;
+        this.customerRepo = new CustomerRepository();
+    }
 
     Node build() {
         ScrollPane sp = new ScrollPane();
@@ -47,7 +54,7 @@ public class EntryScreen {
         // Main row — both cards grow equally
         HBox mainRow = new HBox(20);
         mainRow.setFillHeight(true);
-        var formCard   = buildFormCard();
+        var formCard    = buildFormCard();
         var resultCard2 = buildResultCard();
         HBox.setHgrow(formCard,    Priority.ALWAYS);
         HBox.setHgrow(resultCard2, Priority.ALWAYS);
@@ -58,7 +65,6 @@ public class EntryScreen {
         page.getChildren().addAll(header, mainRow);
         sp.setContent(page);
 
-        // stagger form card and result card entrance
         javafx.application.Platform.runLater(() ->
                 Animations.staggerCards(60, 80, formCard, resultCard2));
 
@@ -71,11 +77,33 @@ public class EntryScreen {
         VBox card = ParkingApp.pageCard("New Entry");
         card.setMaxWidth(Double.MAX_VALUE);
 
-        // License plate field
+        // ── License plate field (with auto-fill on focus-lost) ──
         plateField = ParkingApp.styledField("e.g.  34 ABC 001");
+        plateField.focusedProperty().addListener((obs, wasFocused, isNowFocused) -> {
+            if (!isNowFocused) autoFillCustomer();
+        });
         VBox plateGroup = ParkingApp.fieldGroup("LICENSE PLATE", plateField);
 
-        // Vehicle type selector
+        // ── Customer name & phone side-by-side ──
+        nameField  = ParkingApp.styledField("e.g.  John Smith  (optional)");
+        phoneField = ParkingApp.styledField("e.g.  +995 555 123 456  (optional)");
+
+        VBox nameGroup  = ParkingApp.fieldGroup("CUSTOMER NAME", nameField);
+        VBox phoneGroup = ParkingApp.fieldGroup("PHONE NUMBER",  phoneField);
+
+        HBox customerRow = new HBox(12);
+        HBox.setHgrow(nameGroup,  Priority.ALWAYS);
+        HBox.setHgrow(phoneGroup, Priority.ALWAYS);
+        nameGroup.setMaxWidth(Double.MAX_VALUE);
+        phoneGroup.setMaxWidth(Double.MAX_VALUE);
+        customerRow.getChildren().addAll(nameGroup, phoneGroup);
+
+        // Auto-fill hint label
+        Label autoFillHint = new Label("ℹ  Known customers are auto-filled when you enter their plate.");
+        autoFillHint.setFont(Font.font("System", 11));
+        autoFillHint.setTextFill(Color.web(ParkingApp.TEXT_M));
+
+        // ── Vehicle type selector ──
         Label typeLabel = new Label("VEHICLE TYPE");
         typeLabel.setFont(Font.font("System", FontWeight.BOLD, 12));
         typeLabel.setTextFill(Color.web(ParkingApp.TEXT_M));
@@ -83,28 +111,30 @@ public class EntryScreen {
         typeGroup = new ToggleGroup();
         HBox typeRow = new HBox(10);
         typeRow.getChildren().addAll(
-                typeChip("🚗  Car",          VehicleType.CAR,        true),
-                typeChip("🏍  Motorcycle",   VehicleType.MOTORCYCLE, false),
-                typeChip("🚛  Truck",        VehicleType.TRUCK,      false)
+                typeChip("🚗  Car",        VehicleType.CAR,        true),
+                typeChip("🏍  Motorcycle", VehicleType.MOTORCYCLE, false),
+                typeChip("🚛  Truck",      VehicleType.TRUCK,      false)
         );
 
         VBox typeGroup2 = new VBox(6);
         typeGroup2.getChildren().addAll(typeLabel, typeRow);
 
-        // Status
+        // ── Status banner ──
         statusLabel = new Label("");
         statusLabel.setFont(Font.font("System", 12));
         statusLabel.setWrapText(true);
         statusLabel.setVisible(false);
         statusLabel.setPadding(new Insets(10, 14, 10, 14));
 
-        // Buttons
+        // ── Buttons ──
         Button submit = ParkingApp.primaryBtn("Issue Ticket  →", ParkingApp.ACCENT);
         submit.setOnAction(e -> { Animations.buttonPulse(submit); handleIssue(); });
 
         Button clear = ParkingApp.ghostBtn("Clear");
         clear.setOnAction(e -> {
             plateField.clear();
+            nameField.clear();
+            phoneField.clear();
             statusLabel.setVisible(false);
             resultCard.setVisible(false);
         });
@@ -113,7 +143,14 @@ public class EntryScreen {
         HBox.setHgrow(submit, Priority.ALWAYS);
         btnRow.getChildren().addAll(submit, clear);
 
-        card.getChildren().addAll(plateGroup, typeGroup2, statusLabel, btnRow);
+        card.getChildren().addAll(
+                plateGroup,
+                customerRow,
+                autoFillHint,
+                typeGroup2,
+                statusLabel,
+                btnRow
+        );
         return card;
     }
 
@@ -124,13 +161,41 @@ public class EntryScreen {
         resultCard.setMinWidth(320);
         resultCard.setVisible(false);
 
-        // placeholder — populated in handleIssue()
         Label placeholder = new Label("Ticket details will appear here.");
         placeholder.setFont(Font.font("System", 13));
         placeholder.setTextFill(Color.web(ParkingApp.TEXT_M));
         resultCard.getChildren().add(placeholder);
 
         return resultCard;
+    }
+
+    // ── Auto-fill known customer ──────────────────────────────────────────
+
+    /**
+     * Called when the plate field loses focus.
+     * If the plate is already in the customers table, pre-fills name & phone.
+     */
+    private void autoFillCustomer() {
+        String plate = plateField.getText().trim().toUpperCase();
+        if (plate.isBlank()) return;
+
+        CustomerRepository.CustomerRecord rec = customerRepo.findByPlate(plate);
+        if (rec != null) {
+            // Only fill if the fields are still empty (don't overwrite what the operator typed)
+            if (nameField.getText().isBlank())
+                nameField.setText(rec.fullName.equals("Guest") ? "" : rec.fullName);
+            if (phoneField.getText().isBlank())
+                phoneField.setText(rec.phone);
+
+            // Also switch the vehicle-type chip to match the stored type
+            try {
+                VehicleType storedType = VehicleType.valueOf(rec.vehicleType);
+                typeGroup.getToggles().stream()
+                        .filter(t -> t.getUserData() == storedType)
+                        .findFirst()
+                        .ifPresent(t -> typeGroup.selectToggle(t));
+            } catch (IllegalArgumentException ignored) { /* unknown type — leave as is */ }
+        }
     }
 
     // ── Handler ───────────────────────────────────────────────────────────
@@ -145,17 +210,28 @@ public class EntryScreen {
             Vehicle vehicle = new Vehicle(plate, type);
             Ticket  ticket  = ParkingApp.TICKET_MANAGER.issueTicket(vehicle);
 
+            // ── Persist customer name & phone if provided ──
+            String name  = nameField.getText().trim();
+            String phone = phoneField.getText().trim();
+            if (!name.isBlank() || !phone.isBlank()) {
+                String savedName  = name.isBlank()  ? "Guest" : name;
+                String savedPhone = phone.isBlank() ? ""      : phone;
+                customerRepo.updateCustomerInfo(plate, savedName, savedPhone);
+            }
+
             showStatus("✓  Ticket issued successfully!", ParkingApp.SUCCESS);
-            populateResult(ticket);
+            populateResult(ticket, name.isBlank() ? "Guest" : name);
             Animations.cardPop(resultCard);
             plateField.clear();
+            nameField.clear();
+            phoneField.clear();
 
-        } catch (IllegalStateException e) {
+        } catch (IllegalStateException | IllegalArgumentException e) {
             showStatus("✗  " + e.getMessage(), ParkingApp.DANGER);
         }
     }
 
-    private void populateResult(Ticket t) {
+    private void populateResult(Ticket t, String customerName) {
         resultCard.getChildren().clear();
 
         // Title row
@@ -191,18 +267,19 @@ public class EntryScreen {
         idNote.setTextFill(Color.web(ParkingApp.WARNING));
         idBox.getChildren().addAll(idLbl, idVal, idNote);
 
-        // Detail rows
+        // Detail rows — now includes customer name
         VBox details = new VBox(0);
         details.setStyle(
                 "-fx-background-color: " + ParkingApp.BG_RAISED + ";" +
                         "-fx-background-radius: 10;"
         );
         details.getChildren().addAll(
-                detailRow("License Plate", t.getVehicle().getLicensePlate(), false),
-                detailRow("Vehicle Type",  t.getVehicle().getType().getDisplayName(), true),
-                detailRow("Assigned Spot", t.getSpot().getSpotId(), false),
-                detailRow("Floor",         "Floor " + t.getSpot().getFloor(), true),
-                detailRow("Entry Time",    t.getIssuedAt().toLocalTime().toString(), false)
+                detailRow("Customer",      customerName,                              false),
+                detailRow("License Plate", t.getVehicle().getLicensePlate(),          true),
+                detailRow("Vehicle Type",  t.getVehicle().getType().getDisplayName(), false),
+                detailRow("Assigned Spot", t.getSpot().getSpotId(),                  true),
+                detailRow("Floor",         "Floor " + t.getSpot().getFloor(),         false),
+                detailRow("Entry Time",    t.getIssuedAt().toLocalTime().toString(),  true)
         );
 
         resultCard.getChildren().addAll(titleRow, sep, idBox, details);
