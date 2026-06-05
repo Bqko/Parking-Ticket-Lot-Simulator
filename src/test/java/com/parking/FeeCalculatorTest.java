@@ -1,13 +1,11 @@
 package com.parking;
 
 import com.parking.db.DatabaseManager;
-import com.parking.enums.SpotType;
 import com.parking.enums.VehicleType;
 import com.parking.model.ParkingLot;
-import com.parking.model.ParkingSpot;
-import com.parking.model.Ticket;
 import com.parking.model.Vehicle;
 import com.parking.service.FeeCalculator;
+import com.parking.util.DummyDataGenerator;
 import org.junit.jupiter.api.*;
 
 import java.time.LocalDateTime;
@@ -38,9 +36,11 @@ class FeeCalculatorTest {
         ParkingLot.resetInstance();
     }
 
+    // ── Grace period ──────────────────────────────────────────────────────
+
     @Test
     @DisplayName("Stay within grace period → fee is 0")
-    void graceperiod_freeWithinWindow() {
+    void gracePeriod_freeWithinWindow() {
         LocalDateTime entry = LocalDateTime.now().minusMinutes(10);
         double fee = calc.calculate(car, entry, LocalDateTime.now());
         assertEquals(0.0, fee, "Fee should be 0 within grace period");
@@ -62,6 +62,8 @@ class FeeCalculatorTest {
         assertTrue(fee > 0, "Fee should be charged after grace period");
     }
 
+    // ── Hourly billing ────────────────────────────────────────────────────
+
     @Test
     @DisplayName("Exactly 1 hour → 1 × base rate for car")
     void hourly_exactOneHour() {
@@ -79,12 +81,14 @@ class FeeCalculatorTest {
     }
 
     @Test
-    @DisplayName("3 hours → 3 × 20 = 60 TRY for car")
+    @DisplayName("3 hours → 3 × 20 = 60 for car")
     void hourly_threeHours() {
         LocalDateTime entry = LocalDateTime.now().minusHours(3);
         double fee = calc.calculate(car, entry, LocalDateTime.now());
         assertEquals(60.0, fee, 0.01);
     }
+
+    // ── Vehicle type multipliers ──────────────────────────────────────────
 
     @Test
     @DisplayName("Motorcycle rate is half the car rate")
@@ -98,11 +102,13 @@ class FeeCalculatorTest {
     @Test
     @DisplayName("Truck rate is double the car rate")
     void multiplier_truck() {
-        LocalDateTime entry   = LocalDateTime.now().minusHours(2);
+        LocalDateTime entry = LocalDateTime.now().minusHours(2);
         double carFee   = calc.calculate(car,   entry, LocalDateTime.now());
         double truckFee = calc.calculate(truck, entry, LocalDateTime.now());
         assertEquals(carFee * 2.0, truckFee, 0.01, "Truck should pay double the car rate");
     }
+
+    // ── Daily cap ─────────────────────────────────────────────────────────
 
     @Test
     @DisplayName("Fee is capped at daily maximum")
@@ -119,8 +125,10 @@ class FeeCalculatorTest {
         calc.setDailyMaxRate(50.0);
         LocalDateTime entry = LocalDateTime.now().minusHours(5);
         double fee = calc.calculate(car, entry, LocalDateTime.now());
-        assertEquals(50.0, fee, 0.01, "Fee should be capped at 50 TRY");
+        assertEquals(50.0, fee, 0.01, "Fee should be capped at 50");
     }
+
+    // ── Discounts ─────────────────────────────────────────────────────────
 
     @Test
     @DisplayName("50% discount halves the fee")
@@ -148,8 +156,10 @@ class FeeCalculatorTest {
         assertEquals(75.0, result, 0.01);
     }
 
+    // ── Lost ticket ───────────────────────────────────────────────────────
+
     @Test
-    @DisplayName("Default lost ticket fee is 150 TRY")
+    @DisplayName("Default lost ticket fee is 150")
     void lostTicket_defaultFee() {
         assertEquals(150.0, calc.getLostTicketFee(), 0.01);
     }
@@ -160,6 +170,8 @@ class FeeCalculatorTest {
         calc.setLostTicketFee(200.0);
         assertEquals(200.0, calc.getLostTicketFee(), 0.01);
     }
+
+    // ── Validation ────────────────────────────────────────────────────────
 
     @Test
     @DisplayName("Negative base rate throws exception")
@@ -189,5 +201,55 @@ class FeeCalculatorTest {
     void validation_nullEntryTime() {
         assertThrows(IllegalArgumentException.class,
                 () -> calc.calculate(car, null, LocalDateTime.now()));
+    }
+
+    // ── DummyDataGenerator integration ───────────────────────────────────
+
+    @Test
+    @DisplayName("Fee is always non-negative for any generated vehicle")
+    void dummy_feeNeverNegative() {
+        calc.setGracePeriodMinutes(0);
+        for (int i = 0; i < 20; i++) {
+            Vehicle v = DummyDataGenerator.vehicle();
+            LocalDateTime entry = LocalDateTime.now().minusMinutes(30 + i * 10);
+            double fee = calc.calculate(v, entry, LocalDateTime.now());
+            assertTrue(fee >= 0, "Fee must never be negative for plate: " + v.getLicensePlate());
+        }
+    }
+
+    @Test
+    @DisplayName("Fee ordering holds: motorcycle ≤ car ≤ truck for same duration")
+    void dummy_feeOrderingByType() {
+        calc.setGracePeriodMinutes(0);
+        LocalDateTime entry = LocalDateTime.now().minusHours(2);
+
+        // Use seeded generator so plates are always unique and reproducible
+        DummyDataGenerator gen = DummyDataGenerator.withSeed(1L);
+        Vehicle moto  = gen.nextVehicle(VehicleType.MOTORCYCLE);
+        Vehicle randomCar   = gen.nextVehicle(VehicleType.CAR);
+        Vehicle bigTruck  = gen.nextVehicle(VehicleType.TRUCK);
+
+        double motoFee  = calc.calculate(moto,  entry, LocalDateTime.now());
+        double carFee   = calc.calculate(randomCar,   entry, LocalDateTime.now());
+        double truckFee = calc.calculate(bigTruck, entry, LocalDateTime.now());
+
+        assertTrue(motoFee <= carFee,   "Motorcycle fee should be ≤ car fee");
+        assertTrue(carFee  <= truckFee, "Car fee should be ≤ truck fee");
+    }
+
+    @Test
+    @DisplayName("Daily cap is never exceeded regardless of vehicle type or duration")
+    void dummy_dailyCapNeverExceeded() {
+        calc.setDailyMaxRate(100.0);
+        calc.setGracePeriodMinutes(0);
+
+        for (VehicleType type : VehicleType.values()) {
+            Vehicle v = DummyDataGenerator.vehicle(type);
+            LocalDateTime entry = LocalDateTime.now().minusHours(48);
+            double fee = calc.calculate(v, entry, LocalDateTime.now());
+            // 2 days parked → cap is dailyMaxRate * 3 (generous bound)
+            assertTrue(fee <= calc.getDailyMaxRate() * 3,
+                    "Fee exceeded reasonable cap for type: " + type);
+        }
     }
 }

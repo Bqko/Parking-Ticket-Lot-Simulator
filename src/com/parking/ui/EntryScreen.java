@@ -4,6 +4,7 @@ import com.parking.db.CustomerRepository;
 import com.parking.enums.VehicleType;
 import com.parking.model.Ticket;
 import com.parking.model.Vehicle;
+import com.parking.util.DummyDataGenerator;
 import javafx.geometry.*;
 import javafx.scene.Node;
 import javafx.scene.control.*;
@@ -78,14 +79,14 @@ public class EntryScreen {
         card.setMaxWidth(Double.MAX_VALUE);
 
         // ── License plate field (with auto-fill on focus-lost) ──
-        plateField = ParkingApp.styledField("e.g.  34 ABC 001");
+        plateField = ParkingApp.styledField("e.g.  GK-447-TN");
         plateField.focusedProperty().addListener((obs, wasFocused, isNowFocused) -> {
             if (!isNowFocused) autoFillCustomer();
         });
         VBox plateGroup = ParkingApp.fieldGroup("LICENSE PLATE", plateField);
 
         // ── Customer name & phone side-by-side ──
-        nameField  = ParkingApp.styledField("e.g.  John Smith  (optional)");
+        nameField  = ParkingApp.styledField("e.g.  Giorgi Beridze  (optional)");
         phoneField = ParkingApp.styledField("e.g.  +995 555 123 456  (optional)");
 
         VBox nameGroup  = ParkingApp.fieldGroup("CUSTOMER NAME", nameField);
@@ -130,6 +131,8 @@ public class EntryScreen {
         Button submit = ParkingApp.primaryBtn("Issue Ticket  →", ParkingApp.ACCENT);
         submit.setOnAction(e -> { Animations.buttonPulse(submit); handleIssue(); });
 
+        Button dummyBtn = buildDummyButton();
+
         Button clear = ParkingApp.ghostBtn("Clear");
         clear.setOnAction(e -> {
             plateField.clear();
@@ -141,7 +144,7 @@ public class EntryScreen {
 
         HBox btnRow = new HBox(10);
         HBox.setHgrow(submit, Priority.ALWAYS);
-        btnRow.getChildren().addAll(submit, clear);
+        btnRow.getChildren().addAll(submit, dummyBtn, clear);
 
         card.getChildren().addAll(
                 plateGroup,
@@ -152,6 +155,93 @@ public class EntryScreen {
                 btnRow
         );
         return card;
+    }
+
+    // ── Dummy data button ─────────────────────────────────────────────────
+
+    /**
+     * Builds the "Fill with Dummy Data" button.
+     *
+     * Clicking it generates a random Georgian plate, a random full name,
+     * a random Georgian phone number, and picks a random vehicle type —
+     * all using {@link DummyDataGenerator} — then populates the form fields.
+     *
+     * The button is styled distinctly (warning/amber tone) so it's easy
+     * to spot and won't be confused for a production action.
+     */
+    private Button buildDummyButton() {
+        Button btn = new Button("🎲  Dummy Data");
+        btn.setCursor(javafx.scene.Cursor.HAND);
+        btn.setFont(Font.font("System", 13));
+        btn.setTooltip(new Tooltip("Fill all fields with randomly generated Georgian test data"));
+
+        String base =
+                "-fx-background-radius: 10;" +
+                        "-fx-border-radius: 10;" +
+                        "-fx-border-width: 1;" +
+                        "-fx-padding: 9 18 9 18;";
+
+        String normal =
+                base +
+                        "-fx-background-color: " + ParkingApp.WARNING + "22;" +
+                        "-fx-text-fill: "        + ParkingApp.WARNING + ";" +
+                        "-fx-border-color: "     + ParkingApp.WARNING + "66;";
+
+        String hover =
+                base +
+                        "-fx-background-color: " + ParkingApp.WARNING + "44;" +
+                        "-fx-text-fill: "        + ParkingApp.WARNING + ";" +
+                        "-fx-border-color: "     + ParkingApp.WARNING + ";";
+
+        btn.setStyle(normal);
+        btn.setOnMouseEntered(e -> btn.setStyle(hover));
+        btn.setOnMouseExited(e  -> btn.setStyle(normal));
+
+        btn.setOnAction(e -> {
+            Animations.buttonPulse(btn);
+            fillDummyData();
+        });
+
+        return btn;
+    }
+
+    /**
+     * Generates random Georgian test data and populates all form fields.
+     * Vehicle type chip is also switched to match the generated type.
+     */
+    private void fillDummyData() {
+        // Generate data
+        String      plate     = DummyDataGenerator.plate();
+        String      name      = DummyDataGenerator.fullNameLatin();
+        String      phone     = DummyDataGenerator.phone();
+        VehicleType type      = randomWeightedType();
+
+        // Populate fields
+        plateField.setText(plate);
+        nameField.setText(name);
+        phoneField.setText(phone);
+
+        // Switch the type chip
+        typeGroup.getToggles().stream()
+                .filter(t -> t.getUserData() == type)
+                .findFirst()
+                .ifPresent(typeGroup::selectToggle);
+
+        // Show a subtle confirmation in the status banner
+        showStatus("🎲  Dummy data filled — plate " + plate + ", " + type.getDisplayName().toLowerCase() + ".",
+                ParkingApp.WARNING);
+    }
+
+    /**
+     * Returns a weighted random vehicle type.
+     * Reflects realistic parking lot distribution:
+     * ~70% cars, ~20% motorcycles, ~10% trucks.
+     */
+    private VehicleType randomWeightedType() {
+        int roll = (int) (Math.random() * 10);
+        if (roll < 7) return VehicleType.CAR;
+        if (roll < 9) return VehicleType.MOTORCYCLE;
+        return VehicleType.TRUCK;
     }
 
     // ── Result card ───────────────────────────────────────────────────────
@@ -181,13 +271,11 @@ public class EntryScreen {
 
         CustomerRepository.CustomerRecord rec = customerRepo.findByPlate(plate);
         if (rec != null) {
-            // Only fill if the fields are still empty (don't overwrite what the operator typed)
             if (nameField.getText().isBlank())
                 nameField.setText(rec.fullName.equals("Guest") ? "" : rec.fullName);
             if (phoneField.getText().isBlank())
                 phoneField.setText(rec.phone);
 
-            // Also switch the vehicle-type chip to match the stored type
             try {
                 VehicleType storedType = VehicleType.valueOf(rec.vehicleType);
                 typeGroup.getToggles().stream()
@@ -210,7 +298,6 @@ public class EntryScreen {
             Vehicle vehicle = new Vehicle(plate, type);
             Ticket  ticket  = ParkingApp.TICKET_MANAGER.issueTicket(vehicle);
 
-            // ── Persist customer name & phone if provided ──
             String name  = nameField.getText().trim();
             String phone = phoneField.getText().trim();
             if (!name.isBlank() || !phone.isBlank()) {
@@ -234,7 +321,6 @@ public class EntryScreen {
     private void populateResult(Ticket t, String customerName) {
         resultCard.getChildren().clear();
 
-        // Title row
         HBox titleRow = new HBox(10);
         titleRow.setAlignment(Pos.CENTER_LEFT);
         Label title = new Label("Issued Ticket");
@@ -246,13 +332,12 @@ public class EntryScreen {
 
         Separator sep = new Separator();
 
-        // Ticket ID highlight box
         VBox idBox = new VBox(4);
         idBox.setPadding(new Insets(14, 16, 14, 16));
         idBox.setStyle(
                 "-fx-background-color: " + ParkingApp.ACCENT + "18;" +
                         "-fx-background-radius: 10;" +
-                        "-fx-border-color: " + ParkingApp.ACCENT + "44;" +
+                        "-fx-border-color: "     + ParkingApp.ACCENT + "44;" +
                         "-fx-border-radius: 10;" +
                         "-fx-border-width: 1;"
         );
@@ -267,7 +352,6 @@ public class EntryScreen {
         idNote.setTextFill(Color.web(ParkingApp.WARNING));
         idBox.getChildren().addAll(idLbl, idVal, idNote);
 
-        // Detail rows — now includes customer name
         VBox details = new VBox(0);
         details.setStyle(
                 "-fx-background-color: " + ParkingApp.BG_RAISED + ";" +
@@ -311,7 +395,7 @@ public class EntryScreen {
         statusLabel.setStyle(
                 "-fx-background-color: " + color + "18;" +
                         "-fx-background-radius: 8;" +
-                        "-fx-border-color: " + color + "44;" +
+                        "-fx-border-color: "     + color + "44;" +
                         "-fx-border-radius: 8;" +
                         "-fx-border-width: 1;"
         );
@@ -339,14 +423,14 @@ public class EntryScreen {
                 tb.setStyle(baseStyle +
                         "-fx-background-color: " + ParkingApp.ACCENT + ";" +
                         "-fx-text-fill: white;" +
-                        "-fx-border-color: " + ParkingApp.ACCENT + ";" +
+                        "-fx-border-color: "     + ParkingApp.ACCENT + ";" +
                         "-fx-border-radius: 8;" +
                         "-fx-border-width: 1;");
             } else {
                 tb.setStyle(baseStyle +
                         "-fx-background-color: " + ParkingApp.BG_RAISED + ";" +
-                        "-fx-text-fill: " + ParkingApp.TEXT_M + ";" +
-                        "-fx-border-color: " + ParkingApp.BORDER_LIT + ";" +
+                        "-fx-text-fill: "         + ParkingApp.TEXT_M + ";" +
+                        "-fx-border-color: "      + ParkingApp.BORDER_LIT + ";" +
                         "-fx-border-radius: 8;" +
                         "-fx-border-width: 1;");
             }

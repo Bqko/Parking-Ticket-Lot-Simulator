@@ -1,15 +1,25 @@
 === ALL TICKETS IN DATABASE ===
-Generated: 2026-05-30T13:12:04.124645600
+Generated: 2026-06-05T19:10:03.230044800
 ================================
+Ticket ID  : D3CACBA1C5
+Plate      : BAKO
+Type       : Car
+Spot       : F0-S01
+Status     : EXITED
+Entry      : 2026-05-31T23:08:10
+Exit       : 2026-06-05T19:10:03.231103200
+Fee        : 15.00
+Amount paid: 15.00
+--------------------------------
 Ticket ID  : AA61D0BF0D
 Plate      : MA-010-KA
 Type       : Car
 Spot       : F0-S01
 Status     : EXITED
 Entry      : 2026-05-30T13:11:17
-Exit       : 2026-05-30T13:12:04.129644300
+Exit       : 2026-06-05T19:10:03.231103200
 Fee        : 0.00
 Amount paid: 0.00
 --------------------------------
-Total tickets: 1
-Total revenue: 0.00
+Total tickets: 2
+Total revenue: 15.00

@@ -8,7 +8,10 @@ import com.parking.model.Ticket;
 import com.parking.model.Vehicle;
 import com.parking.service.FeeCalculator;
 import com.parking.service.TicketManager;
+import com.parking.util.DummyDataGenerator;
 import org.junit.jupiter.api.*;
+
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -31,6 +34,8 @@ class TicketManagerTest {
         DatabaseManager.getInstance().close();
         ParkingLot.resetInstance();
     }
+
+    // ── Issue ─────────────────────────────────────────────────────────────
 
     @Test
     @DisplayName("Issuing a ticket returns a non-null ACTIVE ticket")
@@ -76,6 +81,8 @@ class TicketManagerTest {
         manager.issueTicket(new Vehicle("34 CAR 001", VehicleType.CAR));
         assertEquals(before - 1, ParkingLot.getInstance().getAvailableCount());
     }
+
+    // ── Payment ───────────────────────────────────────────────────────────
 
     @Test
     @DisplayName("Payment with exact amount → ticket is PAID, change is 0")
@@ -128,6 +135,8 @@ class TicketManagerTest {
                 () -> manager.processPayment("UNKNOWN-ID", 100.0));
     }
 
+    // ── Exit ──────────────────────────────────────────────────────────────
+
     @Test
     @DisplayName("Exit after payment → ticket is EXITED and spot is free")
     void exit_afterPayment() {
@@ -173,6 +182,8 @@ class TicketManagerTest {
         assertEquals(before, ParkingLot.getInstance().getAvailableCount());
     }
 
+    // ── Full lifecycle ────────────────────────────────────────────────────
+
     @Test
     @DisplayName("Full lifecycle: entry → payment → exit completes cleanly")
     void fullLifecycle() {
@@ -189,5 +200,86 @@ class TicketManagerTest {
         assertEquals(TicketStatus.EXITED, ticket.getStatus());
         assertEquals(0, manager.getActiveTickets().size());
         assertEquals(1, manager.getSessionHistory().size());
+    }
+
+    // ── DummyDataGenerator integration ───────────────────────────────────
+
+    @Test
+    @DisplayName("Generated vehicles can all be issued tickets")
+    void dummy_bulkIssue() {
+        List<Vehicle> fleet = DummyDataGenerator.vehicles(5, VehicleType.CAR);
+        for (Vehicle v : fleet) {
+            Ticket t = manager.issueTicket(v);
+            assertNotNull(t);
+            assertEquals(TicketStatus.ACTIVE, t.getStatus());
+        }
+        assertEquals(5, manager.getActiveTickets().size());
+    }
+
+    @Test
+    @DisplayName("Full lifecycle for a fleet of generated mixed vehicles")
+    void dummy_fleetFullLifecycle() {
+        List<Vehicle> fleet = DummyDataGenerator.vehicles(6);  // random mixed types
+        double revenueBefore = manager.getTotalRevenue();
+
+        for (Vehicle v : fleet) {
+            Ticket t  = manager.issueTicket(v);
+            double fee = manager.previewFee(t.getTicketId());
+            manager.processPayment(t.getTicketId(), fee + 5.0);
+            manager.processExit(t.getTicketId());
+        }
+
+        assertEquals(0, manager.getActiveTickets().size());
+        assertEquals(6, manager.getSessionHistory().size());
+        assertTrue(manager.getTotalRevenue() >= revenueBefore,
+                "Revenue should increase after processing a fleet");
+    }
+
+    @Test
+    @DisplayName("Revenue accumulates correctly across multiple generated vehicles")
+    void dummy_revenueAccumulates() {
+        List<Vehicle> fleet = DummyDataGenerator.vehicles(3, VehicleType.TRUCK);
+        double totalFees = 0;
+
+        for (Vehicle v : fleet) {
+            Ticket t   = manager.issueTicket(v);
+            double fee = manager.previewFee(t.getTicketId());
+            totalFees += fee;
+            manager.processPayment(t.getTicketId(), fee);
+            manager.processExit(t.getTicketId());
+        }
+
+        assertEquals(totalFees, manager.getTotalRevenue(), 0.01,
+                "Total revenue should equal the sum of all fees charged");
+    }
+
+    @Test
+    @DisplayName("Spot count is fully restored after all generated vehicles exit")
+    void dummy_spotCountRestoredAfterFleetExit() {
+        long initial = ParkingLot.getInstance().getAvailableCount();
+        List<Vehicle> fleet = DummyDataGenerator.vehicles(4, VehicleType.CAR);
+
+        for (Vehicle v : fleet) {
+            Ticket t  = manager.issueTicket(v);
+            double fee = manager.previewFee(t.getTicketId());
+            manager.processPayment(t.getTicketId(), fee + 1);
+            manager.processExit(t.getTicketId());
+        }
+
+        assertEquals(initial, ParkingLot.getInstance().getAvailableCount(),
+                "Available spots should be fully restored after all exits");
+    }
+
+    @Test
+    @DisplayName("Seeded generator produces reproducible vehicle plates for debugging")
+    void dummy_seededGeneratorReproducible() {
+        DummyDataGenerator gen = DummyDataGenerator.withSeed(77L);
+        Vehicle v1 = gen.nextVehicle(VehicleType.CAR);
+        Ticket  t1 = manager.issueTicket(v1);
+        assertNotNull(t1);
+
+        // Same seed, same plate — useful when a test failure needs repeating
+        DummyDataGenerator gen2 = DummyDataGenerator.withSeed(77L);
+        assertEquals(v1.getLicensePlate(), gen2.nextVehicle(VehicleType.CAR).getLicensePlate());
     }
 }

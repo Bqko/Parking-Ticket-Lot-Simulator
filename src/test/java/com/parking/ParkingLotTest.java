@@ -6,7 +6,10 @@ import com.parking.enums.VehicleType;
 import com.parking.model.ParkingLot;
 import com.parking.model.ParkingSpot;
 import com.parking.model.Vehicle;
+import com.parking.util.DummyDataGenerator;
 import org.junit.jupiter.api.*;
+
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -28,6 +31,8 @@ class ParkingLotTest {
         ParkingLot.resetInstance();
     }
 
+    // ── Singleton ─────────────────────────────────────────────────────────
+
     @Test
     @DisplayName("getInstance() always returns the same object")
     void singleton_sameInstance() {
@@ -36,9 +41,11 @@ class ParkingLotTest {
         assertSame(a, b);
     }
 
+    // ── Initial state ─────────────────────────────────────────────────────
+
     @Test
     @DisplayName("Lot is initialised with spots")
-    void initial_hasSports() {
+    void initial_hasSpots() {
         assertTrue(lot.getTotalSpots() > 0);
     }
 
@@ -54,6 +61,8 @@ class ParkingLotTest {
     void initial_zeroOccupancy() {
         assertEquals(0.0, lot.getOccupancyRate(), 0.001);
     }
+
+    // ── Assign ────────────────────────────────────────────────────────────
 
     @Test
     @DisplayName("Assigning a spot reduces available count by 1")
@@ -90,9 +99,11 @@ class ParkingLotTest {
         assertEquals(SpotType.LARGE, spot.getSpotType());
     }
 
+    // ── Release ───────────────────────────────────────────────────────────
+
     @Test
     @DisplayName("Releasing a spot makes it available again")
-    void release_spotsBecomesAvailable() {
+    void release_spotBecomesAvailable() {
         Vehicle car = new Vehicle("34 CAR 001", VehicleType.CAR);
         ParkingSpot spot = lot.assignSpot(car);
         long occupiedBefore = lot.getOccupiedCount();
@@ -101,6 +112,8 @@ class ParkingLotTest {
         assertEquals(occupiedBefore - 1, lot.getOccupiedCount());
     }
 
+    // ── Availability ──────────────────────────────────────────────────────
+
     @Test
     @DisplayName("hasAvailableSpot returns true initially for all types")
     void available_trueInitially() {
@@ -108,6 +121,8 @@ class ParkingLotTest {
         assertTrue(lot.hasAvailableSpot(VehicleType.MOTORCYCLE));
         assertTrue(lot.hasAvailableSpot(VehicleType.TRUCK));
     }
+
+    // ── Add / remove spots ────────────────────────────────────────────────
 
     @Test
     @DisplayName("Adding a new spot increases total count")
@@ -151,11 +166,70 @@ class ParkingLotTest {
                 () -> lot.removeSpot("DOES-NOT-EXIST"));
     }
 
+    // ── Floor ─────────────────────────────────────────────────────────────
+
     @Test
     @DisplayName("getSpotsOnFloor returns only spots on that floor")
     void floor_correctSpots() {
         var floor0 = lot.getSpotsOnFloor(0);
         assertFalse(floor0.isEmpty());
         floor0.forEach(s -> assertEquals(0, s.getFloor()));
+    }
+
+    // ── DummyDataGenerator integration ───────────────────────────────────
+
+    @Test
+    @DisplayName("Multiple generated vehicles can all be assigned spots")
+    void dummy_multipleVehiclesAssigned() {
+        List<Vehicle> fleet = DummyDataGenerator.vehicles(5, VehicleType.CAR);
+        long before = lot.getAvailableCount();
+        for (Vehicle v : fleet) {
+            lot.assignSpot(v);
+        }
+        assertEquals(before - 5, lot.getAvailableCount());
+        assertEquals(5, lot.getOccupiedCount());
+    }
+
+    @Test
+    @DisplayName("Assigning and releasing generated vehicles restores occupancy")
+    void dummy_assignAndRelease_restoresCount() {
+        long initial = lot.getAvailableCount();
+        List<Vehicle> fleet = DummyDataGenerator.vehicles(4, VehicleType.CAR);
+
+        List<ParkingSpot> assigned = new java.util.ArrayList<>();
+        for (Vehicle v : fleet) assigned.add(lot.assignSpot(v));
+
+        assertEquals(initial - 4, lot.getAvailableCount());
+
+        for (ParkingSpot s : assigned) lot.releaseSpot(s);
+
+        assertEquals(initial, lot.getAvailableCount());
+        assertEquals(0, lot.getOccupiedCount());
+    }
+
+    @Test
+    @DisplayName("Occupancy rate increases correctly as spots are filled")
+    void dummy_occupancyRateTracksAssignments() {
+        // Fill 1 car and verify rate increased from 0
+        assertEquals(0.0, lot.getOccupancyRate(), 0.001);
+        lot.assignSpot(DummyDataGenerator.vehicle(VehicleType.CAR));
+        assertTrue(lot.getOccupancyRate() > 0.0, "Occupancy rate should be > 0 after one assignment");
+    }
+
+    @Test
+    @DisplayName("Mixed vehicle types all get correctly typed spots")
+    void dummy_mixedTypesGetCorrectSpots() {
+        Vehicle car   = DummyDataGenerator.vehicle(VehicleType.CAR);
+        Vehicle moto  = DummyDataGenerator.vehicle(VehicleType.MOTORCYCLE);
+        Vehicle truck = DummyDataGenerator.vehicle(VehicleType.TRUCK);
+
+        ParkingSpot carSpot   = lot.assignSpot(car);
+        ParkingSpot motoSpot  = lot.assignSpot(moto);
+        ParkingSpot truckSpot = lot.assignSpot(truck);
+
+        // Cars go to STANDARD spots, motos to MOTORCYCLE, trucks to LARGE
+        assertNotEquals(SpotType.MOTORCYCLE, carSpot.getSpotType());
+        assertEquals(SpotType.MOTORCYCLE,    motoSpot.getSpotType());
+        assertEquals(SpotType.LARGE,         truckSpot.getSpotType());
     }
 }

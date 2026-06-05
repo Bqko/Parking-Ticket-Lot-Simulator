@@ -19,38 +19,68 @@ public class ParkingApp extends Application {
     // ── Shared state ──────────────────────────────────────────────────────
     static final TicketManager TICKET_MANAGER = new TicketManager();
 
-    // ── Design tokens ─────────────────────────────────────────────────────
-    static final String BG_BASE    = "#0A0E1A";
-    static final String BG_SURFACE = "#111827";
-    static final String BG_RAISED  = "#1C2333";
-    static final String BG_SIDEBAR = "#0D1220";
-    static final String ACCENT     = "#3B82F6";
-    static final String SUCCESS    = "#22C55E";
-    static final String WARNING    = "#F59E0B";
-    static final String DANGER     = "#EF4444";
-    static final String INFO       = "#06B6D4";
-    static final String TEXT_H     = "#F9FAFB";
-    static final String TEXT_B     = "#D1D5DB";
-    static final String TEXT_M     = "#6B7280";
-    static final String BORDER     = "#1F2937";
-    static final String BORDER_LIT = "#374151";
+    // ── Design tokens — live fields, refreshed on theme change ────────────
+    static String BG_BASE    = Theme.BG_BASE();
+    static String BG_SURFACE = Theme.BG_SURFACE();
+    static String BG_RAISED  = Theme.BG_RAISED();
+    static String BG_SIDEBAR = Theme.BG_SIDEBAR();
+    static String ACCENT     = Theme.ACCENT();
+    static String SUCCESS    = Theme.SUCCESS();
+    static String WARNING    = Theme.WARNING();
+    static String DANGER     = Theme.DANGER();
+    static String INFO       = Theme.INFO();
+    static String TEXT_H     = Theme.TEXT_H();
+    static String TEXT_B     = Theme.TEXT_B();
+    static String TEXT_M     = Theme.TEXT_M();
+    static String BORDER     = Theme.BORDER();
+    static String BORDER_LIT = Theme.BORDER_LIT();
 
-    // kept for back-compat with older screens
-    static final String BG_DARK    = BG_BASE;
-    static final String BG_CARD    = BG_SURFACE;
-    static final String BG_NAVY    = BG_RAISED;
-    static final String BLUE       = ACCENT;
-    static final String TEAL       = INFO;
-    static final String GREEN      = SUCCESS;
-    static final String YELLOW     = WARNING;
-    static final String RED        = DANGER;
-    static final String TEXT_WHITE = TEXT_H;
-    static final String TEXT_MUTED = TEXT_M;
+    // back-compat aliases
+    static String BG_DARK    = BG_BASE;
+    static String BG_CARD    = BG_SURFACE;
+    static String BG_NAVY    = BG_RAISED;
+    static String BLUE       = ACCENT;
+    static String TEAL       = INFO;
+    static String GREEN      = SUCCESS;
+    static String YELLOW     = WARNING;
+    static String RED        = DANGER;
+    static String TEXT_WHITE = TEXT_H;
+    static String TEXT_MUTED = TEXT_M;
+
+    /** Call this after every Theme.toggle() to sync all fields. */
+    static void refreshTokens() {
+        BG_BASE    = Theme.BG_BASE();
+        BG_SURFACE = Theme.BG_SURFACE();
+        BG_RAISED  = Theme.BG_RAISED();
+        BG_SIDEBAR = Theme.BG_SIDEBAR();
+        ACCENT     = Theme.ACCENT();
+        SUCCESS    = Theme.SUCCESS();
+        WARNING    = Theme.WARNING();
+        DANGER     = Theme.DANGER();
+        INFO       = Theme.INFO();
+        TEXT_H     = Theme.TEXT_H();
+        TEXT_B     = Theme.TEXT_B();
+        TEXT_M     = Theme.TEXT_M();
+        BORDER     = Theme.BORDER();
+        BORDER_LIT = Theme.BORDER_LIT();
+        // sync aliases
+        BG_DARK    = BG_BASE;
+        BG_CARD    = BG_SURFACE;
+        BG_NAVY    = BG_RAISED;
+        BLUE       = ACCENT;
+        TEAL       = INFO;
+        GREEN      = SUCCESS;
+        YELLOW     = WARNING;
+        RED        = DANGER;
+        TEXT_WHITE = TEXT_H;
+        TEXT_MUTED = TEXT_M;
+    }
 
     String      activeNav   = "home";
     VBox        sidebar;
     StackPane   contentArea;
     Stage       primaryStage;
+    Scene       mainScene;                          // kept for theme refresh
 
     @Override
     public void start(Stage stage) {
@@ -59,12 +89,10 @@ public class ParkingApp extends Application {
         stage.setMinWidth(720);
         stage.setMinHeight(520);
 
-        // Install peak/off-peak pricing tiers
         com.parking.service.PricingTier.installDefaults();
 
-        // Register occupancy observer to update sidebar on every entry/exit
         com.parking.service.OccupancyObserver.getInstance().addListener(event ->
-                javafx.application.Platform.runLater(() -> {
+                Platform.runLater(() -> {
                     if (sidebar != null) {
                         var children = sidebar.getChildren();
                         if (!children.isEmpty())
@@ -73,26 +101,34 @@ public class ParkingApp extends Application {
                 })
         );
 
-        // Save session when window is closed
         stage.setOnCloseRequest(e -> TICKET_MANAGER.saveSession());
 
         BorderPane root = buildShell();
-        Scene scene = new Scene(root, 1280, 800);
-        scene.setFill(Color.web(BG_BASE));
-        stage.setScene(scene);
+        mainScene = new Scene(root, 1280, 800);
+        mainScene.setFill(Color.web(Theme.BG_BASE()));
+        stage.setScene(mainScene);
         stage.setMaximized(true);
         stage.show();
         showPage("home");
+
+        // ── Rebuild entire UI whenever theme changes ──────────────────────
+        Theme.isDark.addListener((obs, oldVal, newVal) -> Platform.runLater(() -> {
+            refreshTokens();                    // ← sync fields before rebuild
+            mainScene.setFill(Color.web(Theme.BG_BASE()));
+            BorderPane newRoot = buildShell();
+            mainScene.setRoot(newRoot);
+            showPage(activeNav);
+        }));
     }
 
     // ── App shell ─────────────────────────────────────────────────────────
 
     private BorderPane buildShell() {
         BorderPane shell = new BorderPane();
-        shell.setStyle("-fx-background-color: " + BG_BASE + ";");
+        shell.setStyle("-fx-background-color: " + Theme.BG_BASE() + ";");
         sidebar     = buildSidebar();
         contentArea = new StackPane();
-        contentArea.setStyle("-fx-background-color: " + BG_BASE + ";");
+        contentArea.setStyle("-fx-background-color: " + Theme.BG_BASE() + ";");
         shell.setLeft(sidebar);
         shell.setCenter(contentArea);
         return shell;
@@ -104,15 +140,15 @@ public class ParkingApp extends Application {
         VBox sb = new VBox(0);
         sb.setPrefWidth(220);
         sb.setStyle(
-                "-fx-background-color: " + BG_SIDEBAR + ";" +
-                        "-fx-border-color: " + BORDER + ";" +
+                "-fx-background-color: " + Theme.BG_SIDEBAR() + ";" +
+                        "-fx-border-color: "     + Theme.BORDER()     + ";" +
                         "-fx-border-width: 0 1 0 0;"
         );
 
         // Logo
         VBox logo = new VBox(4);
         logo.setPadding(new Insets(26, 20, 22, 20));
-        logo.setStyle("-fx-border-color: " + BORDER + "; -fx-border-width: 0 0 1 0;");
+        logo.setStyle("-fx-border-color: " + Theme.BORDER() + "; -fx-border-width: 0 0 1 0;");
 
         HBox logoRow = new HBox(10);
         logoRow.setAlignment(Pos.CENTER_LEFT);
@@ -120,7 +156,7 @@ public class ParkingApp extends Application {
         StackPane badge = new StackPane();
         Rectangle badgeBg = new Rectangle(36, 36);
         badgeBg.setArcWidth(10); badgeBg.setArcHeight(10);
-        badgeBg.setFill(Color.web(ACCENT));
+        badgeBg.setFill(Color.web(Theme.ACCENT()));
         Label badgeLetter = new Label("P");
         badgeLetter.setFont(Font.font("Georgia", FontWeight.BOLD, 20));
         badgeLetter.setTextFill(Color.WHITE);
@@ -129,17 +165,17 @@ public class ParkingApp extends Application {
         VBox logoText = new VBox(1);
         Label appName = new Label("ParkSpace");
         appName.setFont(Font.font("Georgia", FontWeight.BOLD, 17));
-        appName.setTextFill(Color.web(TEXT_H));
+        appName.setTextFill(Color.web(Theme.TEXT_H()));
         Label appSub = new Label("Management System");
         appSub.setFont(Font.font("System", 10));
-        appSub.setTextFill(Color.web(TEXT_M));
+        appSub.setTextFill(Color.web(Theme.TEXT_M()));
         logoText.getChildren().addAll(appName, appSub);
         logoRow.getChildren().addAll(badge, logoText);
         logo.getChildren().add(logoRow);
 
         Label navLabel = new Label("NAVIGATION");
         navLabel.setFont(Font.font("System", FontWeight.BOLD, 10));
-        navLabel.setTextFill(Color.web(TEXT_M));
+        navLabel.setTextFill(Color.web(Theme.TEXT_M()));
         navLabel.setPadding(new Insets(18, 20, 8, 20));
 
         VBox navItems = new VBox(3);
@@ -155,8 +191,35 @@ public class ParkingApp extends Application {
         Region spacer = new Region();
         VBox.setVgrow(spacer, Priority.ALWAYS);
 
-        sb.getChildren().addAll(logo, navLabel, navItems, spacer, buildSidebarStatus());
+        sb.getChildren().addAll(logo, navLabel, navItems, spacer,
+                buildThemeToggle(), buildSidebarStatus());
         return sb;
+    }
+
+    // ── Theme toggle button ───────────────────────────────────────────────
+
+    private HBox buildThemeToggle() {
+        HBox row = new HBox(10);
+        row.setAlignment(Pos.CENTER_LEFT);
+        row.setPadding(new Insets(12, 16, 4, 16));
+
+        Label icon = new Label(Theme.isDark.get() ? "☀️" : "🌙");
+        icon.setFont(Font.font("System", 14));
+
+        Label lbl = new Label(Theme.isDark.get() ? "Light mode" : "Dark mode");
+        lbl.setFont(Font.font("System", 12));
+        lbl.setTextFill(Color.web(Theme.TEXT_M()));
+
+        row.getChildren().addAll(icon, lbl);
+        row.setCursor(javafx.scene.Cursor.HAND);
+        row.setOnMouseClicked(e -> Theme.toggle());
+
+        String hoverBg = Theme.isDark.get() ? Theme.BORDER() : "#E2E8F0";
+        row.setOnMouseEntered(e -> row.setStyle(
+                "-fx-background-color: " + hoverBg + "; -fx-background-radius: 8;"));
+        row.setOnMouseExited(e -> row.setStyle("-fx-background-color: transparent;"));
+
+        return row;
     }
 
     HBox navItem(String id, String icon, String label) {
@@ -168,7 +231,7 @@ public class ParkingApp extends Application {
 
         Rectangle accentBar = new Rectangle(3, 20);
         accentBar.setArcWidth(3); accentBar.setArcHeight(3);
-        accentBar.setFill(Color.web(ACCENT));
+        accentBar.setFill(Color.web(Theme.ACCENT()));
         accentBar.setVisible(false);
 
         Label iconLbl = new Label(icon);
@@ -178,21 +241,21 @@ public class ParkingApp extends Application {
         item.getChildren().addAll(accentBar, iconLbl, textLbl);
 
         Runnable applyActive = () -> {
-            item.setStyle("-fx-background-color: " + ACCENT + "20; -fx-background-radius: 8;");
+            item.setStyle("-fx-background-color: " + Theme.ACCENT() + "20; -fx-background-radius: 8;");
             accentBar.setVisible(true);
-            textLbl.setTextFill(Color.web(TEXT_H));
+            textLbl.setTextFill(Color.web(Theme.TEXT_H()));
             textLbl.setFont(Font.font("System", FontWeight.BOLD, 13));
         };
         Runnable applyInactive = () -> {
             item.setStyle("-fx-background-color: transparent; -fx-background-radius: 8;");
             accentBar.setVisible(false);
-            textLbl.setTextFill(Color.web(TEXT_M));
+            textLbl.setTextFill(Color.web(Theme.TEXT_M()));
             textLbl.setFont(Font.font("System", 13));
         };
         applyInactive.run();
 
         item.setUserData(new Object[]{ id, applyActive, applyInactive });
-        item.setOnMouseEntered(e -> { if (!activeNav.equals(id)) { item.setStyle("-fx-background-color: " + BORDER + "; -fx-background-radius: 8;"); textLbl.setTextFill(Color.web(TEXT_B)); } });
+        item.setOnMouseEntered(e -> { if (!activeNav.equals(id)) { item.setStyle("-fx-background-color: " + Theme.BORDER() + "; -fx-background-radius: 8;"); textLbl.setTextFill(Color.web(Theme.TEXT_B())); } });
         item.setOnMouseExited(e  -> { if (!activeNav.equals(id)) applyInactive.run(); });
         item.setOnMouseClicked(e -> { Animations.navClick(item); showPage(id); });
         return item;
@@ -201,11 +264,11 @@ public class ParkingApp extends Application {
     private VBox buildSidebarStatus() {
         VBox strip = new VBox(6);
         strip.setPadding(new Insets(14, 16, 20, 16));
-        strip.setStyle("-fx-border-color: " + BORDER + "; -fx-border-width: 1 0 0 0;");
+        strip.setStyle("-fx-border-color: " + Theme.BORDER() + "; -fx-border-width: 1 0 0 0;");
 
         Label lbl = new Label("LOT STATUS");
         lbl.setFont(Font.font("System", FontWeight.BOLD, 9));
-        lbl.setTextFill(Color.web(TEXT_M));
+        lbl.setTextFill(Color.web(Theme.TEXT_M()));
 
         var lot = com.parking.model.ParkingLot.getInstance();
         long avail = lot.getAvailableCount();
@@ -214,16 +277,16 @@ public class ParkingApp extends Application {
 
         Label spotsLbl = new Label(avail + " / " + total + " available");
         spotsLbl.setFont(Font.font("System", FontWeight.BOLD, 13));
-        spotsLbl.setTextFill(Color.web(avail > 10 ? SUCCESS : WARNING));
+        spotsLbl.setTextFill(Color.web(avail > 10 ? Theme.SUCCESS() : Theme.WARNING()));
 
         StackPane bar = new StackPane();
         bar.setAlignment(Pos.CENTER_LEFT);
         Rectangle track = new Rectangle(184, 5);
         track.setArcWidth(4); track.setArcHeight(4);
-        track.setFill(Color.web(BORDER_LIT));
+        track.setFill(Color.web(Theme.BORDER_LIT()));
         Rectangle fill = new Rectangle(Math.max(5, 184 * pct / 100.0), 5);
         fill.setArcWidth(4); fill.setArcHeight(4);
-        fill.setFill(Color.web(pct > 80 ? DANGER : pct > 50 ? WARNING : SUCCESS));
+        fill.setFill(Color.web(pct > 80 ? Theme.DANGER() : pct > 50 ? Theme.WARNING() : Theme.SUCCESS()));
         bar.getChildren().addAll(track, fill);
         StackPane.setAlignment(fill, Pos.CENTER_LEFT);
 
@@ -263,11 +326,6 @@ public class ParkingApp extends Application {
         }
     }
 
-    /**
-     * Replaces the content area with a new page using the standard
-     * exit/enter animation. Used by AdminLoginScreen to swap itself
-     * out for AdminScreen after a successful login.
-     */
     void switchContent(javafx.scene.Node newPage) {
         if (contentArea.getChildren().isEmpty()) {
             contentArea.getChildren().setAll(newPage);
@@ -287,49 +345,46 @@ public class ParkingApp extends Application {
         ScrollPane sp = new ScrollPane();
         sp.setFitToWidth(true);
         sp.setFitToHeight(false);
-        sp.setStyle("-fx-background: " + BG_BASE + "; -fx-background-color: " + BG_BASE + "; -fx-border-color: transparent;");
+        sp.setStyle("-fx-background: " + Theme.BG_BASE() + "; -fx-background-color: " + Theme.BG_BASE() + "; -fx-border-color: transparent;");
 
         VBox page = new VBox(28);
         page.setPadding(new Insets(40, 48, 40, 48));
-        page.setStyle("-fx-background-color: " + BG_BASE + ";");
+        page.setStyle("-fx-background-color: " + Theme.BG_BASE() + ";");
         page.setFillWidth(true);
 
-        // Hero
         VBox hero = new VBox(8);
         Label hi = new Label("Good day 👋");
         hi.setFont(Font.font("System", 13));
-        hi.setTextFill(Color.web(TEXT_M));
+        hi.setTextFill(Color.web(Theme.TEXT_M()));
         Label heroTitle = new Label("Parking Lot\nManagement");
         heroTitle.setFont(Font.font("Georgia", FontWeight.BOLD, 40));
-        heroTitle.setTextFill(Color.web(TEXT_H));
+        heroTitle.setTextFill(Color.web(Theme.TEXT_H()));
         heroTitle.setLineSpacing(2);
         Label heroSub = new Label("Monitor, manage, and operate your parking facility from one place.");
         heroSub.setFont(Font.font("System", 14));
-        heroSub.setTextFill(Color.web(TEXT_M));
+        heroSub.setTextFill(Color.web(Theme.TEXT_M()));
         hero.getChildren().addAll(hi, heroTitle, heroSub);
 
-        // Stats row
         Label statsHdr = sectionTitle("QUICK STATS");
         var lot = com.parking.model.ParkingLot.getInstance();
         HBox stats = new HBox(14);
         stats.setFillHeight(true);
-        var sc1 = miniStatCard("Total Spots",   String.valueOf(lot.getTotalSpots()),                    ACCENT);
-        var sc2 = miniStatCard("Available",     String.valueOf(lot.getAvailableCount()),                 SUCCESS);
-        var sc3 = miniStatCard("Occupied",      String.valueOf(lot.getOccupiedCount()),                  WARNING);
-        var sc4 = miniStatCard("Revenue (USD)", String.format("%.0f", TICKET_MANAGER.getTotalRevenue()), INFO);
+        var sc1 = miniStatCard("Total Spots",   String.valueOf(lot.getTotalSpots()),                    Theme.ACCENT());
+        var sc2 = miniStatCard("Available",     String.valueOf(lot.getAvailableCount()),                 Theme.SUCCESS());
+        var sc3 = miniStatCard("Occupied",      String.valueOf(lot.getOccupiedCount()),                  Theme.WARNING());
+        var sc4 = miniStatCard("Revenue (USD)", String.format("%.0f", TICKET_MANAGER.getTotalRevenue()), Theme.INFO());
         for (var c : new VBox[]{sc1, sc2, sc3, sc4}) {
             HBox.setHgrow(c, Priority.ALWAYS);
             c.setMaxWidth(Double.MAX_VALUE);
         }
         stats.getChildren().addAll(sc1, sc2, sc3, sc4);
 
-        // Action cards
         Label actionsHdr = sectionTitle("QUICK ACTIONS");
         HBox actions = new HBox(16);
-        var ac1 = actionCard("🚗", "Vehicle Entry",  "Record arrival & issue ticket", ACCENT,  "entry");
-        var ac2 = actionCard("💳", "Payment & Exit", "Process payment & open gate",   SUCCESS, "payment");
-        var ac3 = actionCard("📊", "Dashboard",      "Live lot status & analytics",   INFO,    "dashboard");
-        var ac4 = actionCard("⚙️",  "Admin Panel",    "Configure pricing & settings",  WARNING, "admin");
+        var ac1 = actionCard("🚗", "Vehicle Entry",  "Record arrival & issue ticket", Theme.ACCENT(),  "entry");
+        var ac2 = actionCard("💳", "Payment & Exit", "Process payment & open gate",   Theme.SUCCESS(), "payment");
+        var ac3 = actionCard("📊", "Dashboard",      "Live lot status & analytics",   Theme.INFO(),    "dashboard");
+        var ac4 = actionCard("⚙️",  "Admin Panel",    "Configure pricing & settings",  Theme.WARNING(), "admin");
         for (var c : new VBox[]{ac1, ac2, ac3, ac4}) {
             HBox.setHgrow(c, Priority.ALWAYS);
             c.setMaxWidth(Double.MAX_VALUE);
@@ -339,7 +394,7 @@ public class ParkingApp extends Application {
         page.getChildren().addAll(hero, statsHdr, stats, actionsHdr, actions);
         sp.setContent(page);
 
-        javafx.application.Platform.runLater(() -> {
+        Platform.runLater(() -> {
             Animations.staggerCards(80, 60,  sc1, sc2, sc3, sc4);
             Animations.staggerCards(320, 70, ac1, ac2, ac3, ac4);
         });
@@ -351,9 +406,9 @@ public class ParkingApp extends Application {
         VBox card = new VBox(6);
         card.setPadding(new Insets(18, 18, 18, 18));
         card.setStyle(
-                "-fx-background-color: " + BG_SURFACE + ";" +
+                "-fx-background-color: " + Theme.BG_SURFACE() + ";" +
                         "-fx-background-radius: 12;" +
-                        "-fx-border-color: " + BORDER + ";" +
+                        "-fx-border-color: "      + Theme.BORDER()     + ";" +
                         "-fx-border-radius: 12;" +
                         "-fx-border-width: 1;"
         );
@@ -362,7 +417,7 @@ public class ParkingApp extends Application {
         val.setTextFill(Color.web(color));
         Label lbl = new Label(label);
         lbl.setFont(Font.font("System", 12));
-        lbl.setTextFill(Color.web(TEXT_M));
+        lbl.setTextFill(Color.web(Theme.TEXT_M()));
         card.getChildren().addAll(val, lbl);
         return card;
     }
@@ -372,9 +427,9 @@ public class ParkingApp extends Application {
         card.setPadding(new Insets(24, 22, 24, 22));
         card.setCursor(javafx.scene.Cursor.HAND);
         String base =
-                "-fx-background-color: " + BG_SURFACE + ";" +
+                "-fx-background-color: " + Theme.BG_SURFACE() + ";" +
                         "-fx-background-radius: 14;" +
-                        "-fx-border-color: " + BORDER + ";" +
+                        "-fx-border-color: "      + Theme.BORDER()     + ";" +
                         "-fx-border-radius: 14;" +
                         "-fx-border-width: 1;";
         card.setStyle(base);
@@ -392,10 +447,10 @@ public class ParkingApp extends Application {
 
         Label titleLbl = new Label(title);
         titleLbl.setFont(Font.font("System", FontWeight.BOLD, 15));
-        titleLbl.setTextFill(Color.web(TEXT_H));
+        titleLbl.setTextFill(Color.web(Theme.TEXT_H()));
         Label descLbl = new Label(desc);
         descLbl.setFont(Font.font("System", 12));
-        descLbl.setTextFill(Color.web(TEXT_M));
+        descLbl.setTextFill(Color.web(Theme.TEXT_M()));
         descLbl.setWrapText(true);
         Label arrow = new Label("Open →");
         arrow.setFont(Font.font("System", FontWeight.BOLD, 12));
@@ -406,7 +461,7 @@ public class ParkingApp extends Application {
             card.setStyle(
                     "-fx-background-color: " + color + "11;" +
                             "-fx-background-radius: 14;" +
-                            "-fx-border-color: " + color + "66;" +
+                            "-fx-border-color: "      + color + "66;" +
                             "-fx-border-radius: 14;" +
                             "-fx-border-width: 1;"
             );
@@ -451,14 +506,14 @@ public class ParkingApp extends Application {
         btn.setFont(Font.font("System", 13));
         String s =
                 "-fx-background-color: transparent;" +
-                        "-fx-text-fill: " + TEXT_M + ";" +
-                        "-fx-border-color: " + BORDER_LIT + ";" +
+                        "-fx-text-fill: "    + Theme.TEXT_M()     + ";" +
+                        "-fx-border-color: " + Theme.BORDER_LIT() + ";" +
                         "-fx-border-radius: 10;" +
                         "-fx-background-radius: 10;" +
                         "-fx-cursor: hand;" +
                         "-fx-padding: 0 18 0 18;";
         btn.setStyle(s);
-        btn.setOnMouseEntered(e -> btn.setStyle(s + "-fx-background-color: " + BORDER + ";"));
+        btn.setOnMouseEntered(e -> btn.setStyle(s + "-fx-background-color: " + Theme.BORDER() + ";"));
         btn.setOnMouseExited(e  -> btn.setStyle(s));
         return btn;
     }
@@ -469,16 +524,16 @@ public class ParkingApp extends Application {
         tf.setPrefHeight(42);
         tf.setFont(Font.font("System", 13));
         String base =
-                "-fx-background-color: " + BG_BASE + ";" +
-                        "-fx-text-fill: " + TEXT_H + ";" +
-                        "-fx-prompt-text-fill: " + TEXT_M + ";" +
+                "-fx-background-color: " + Theme.BG_BASE()  + ";" +
+                        "-fx-text-fill: "        + Theme.TEXT_H()   + ";" +
+                        "-fx-prompt-text-fill: " + Theme.TEXT_M()   + ";" +
                         "-fx-background-radius: 10;" +
                         "-fx-border-radius: 10;" +
                         "-fx-border-width: 1;" +
                         "-fx-padding: 0 14 0 14;";
-        tf.setStyle(base + "-fx-border-color: " + BORDER_LIT + ";");
+        tf.setStyle(base + "-fx-border-color: " + Theme.BORDER_LIT() + ";");
         tf.focusedProperty().addListener((obs, o, f) ->
-                tf.setStyle(base + "-fx-border-color: " + (f ? ACCENT : BORDER_LIT) + ";"));
+                tf.setStyle(base + "-fx-border-color: " + (f ? Theme.ACCENT() : Theme.BORDER_LIT()) + ";"));
         return tf;
     }
 
@@ -486,7 +541,7 @@ public class ParkingApp extends Application {
         VBox g = new VBox(6);
         Label l = new Label(labelText);
         l.setFont(Font.font("System", FontWeight.BOLD, 12));
-        l.setTextFill(Color.web(TEXT_M));
+        l.setTextFill(Color.web(Theme.TEXT_M()));
         g.getChildren().addAll(l, input);
         return g;
     }
@@ -495,18 +550,18 @@ public class ParkingApp extends Application {
         VBox card = new VBox(20);
         card.setPadding(new Insets(28));
         card.setStyle(
-                "-fx-background-color: " + BG_SURFACE + ";" +
+                "-fx-background-color: " + Theme.BG_SURFACE() + ";" +
                         "-fx-background-radius: 16;" +
-                        "-fx-border-color: " + BORDER + ";" +
+                        "-fx-border-color: "      + Theme.BORDER()     + ";" +
                         "-fx-border-radius: 16;" +
                         "-fx-border-width: 1;"
         );
         if (title != null && !title.isBlank()) {
             Label t = new Label(title);
             t.setFont(Font.font("Georgia", FontWeight.BOLD, 17));
-            t.setTextFill(Color.web(TEXT_H));
+            t.setTextFill(Color.web(Theme.TEXT_H()));
             Separator sep = new Separator();
-            sep.setStyle("-fx-background-color: " + BORDER + ";");
+            sep.setStyle("-fx-background-color: " + Theme.BORDER() + ";");
             card.getChildren().addAll(t, sep);
         }
         return card;
@@ -520,7 +575,7 @@ public class ParkingApp extends Application {
         l.setStyle(
                 "-fx-background-color: " + color + "22;" +
                         "-fx-background-radius: 20;" +
-                        "-fx-border-color: " + color + "55;" +
+                        "-fx-border-color: "      + color + "55;" +
                         "-fx-border-radius: 20;" +
                         "-fx-border-width: 1;"
         );
@@ -530,14 +585,14 @@ public class ParkingApp extends Application {
     static Label pageTitle(String text) {
         Label l = new Label(text);
         l.setFont(Font.font("Georgia", FontWeight.BOLD, 26));
-        l.setTextFill(Color.web(TEXT_H));
+        l.setTextFill(Color.web(Theme.TEXT_H()));
         return l;
     }
 
     static Label sectionTitle(String text) {
         Label l = new Label(text);
         l.setFont(Font.font("System", FontWeight.BOLD, 11));
-        l.setTextFill(Color.web(TEXT_M));
+        l.setTextFill(Color.web(Theme.TEXT_M()));
         return l;
     }
 

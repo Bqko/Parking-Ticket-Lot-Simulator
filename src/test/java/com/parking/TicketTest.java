@@ -8,6 +8,7 @@ import com.parking.model.ParkingLot;
 import com.parking.model.ParkingSpot;
 import com.parking.model.Ticket;
 import com.parking.model.Vehicle;
+import com.parking.util.DummyDataGenerator;
 import org.junit.jupiter.api.*;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -34,6 +35,8 @@ class TicketTest {
         DatabaseManager.getInstance().close();
         ParkingLot.resetInstance();
     }
+
+    // ── Constructor ───────────────────────────────────────────────────────
 
     @Test
     @DisplayName("New ticket starts as ACTIVE")
@@ -76,6 +79,8 @@ class TicketTest {
                 () -> new Ticket(car, null));
     }
 
+    // ── Payment ───────────────────────────────────────────────────────────
+
     @Test
     @DisplayName("Paying correct amount → status becomes PAID")
     void pay_exactAmount() {
@@ -115,6 +120,8 @@ class TicketTest {
         assertTrue(ticket.isPaid());
     }
 
+    // ── Exit ──────────────────────────────────────────────────────────────
+
     @Test
     @DisplayName("Closing after payment → status becomes EXITED")
     void closeOnExit_afterPay() {
@@ -131,6 +138,8 @@ class TicketTest {
                 () -> ticket.closeOnExit());
     }
 
+    // ── Lost ──────────────────────────────────────────────────────────────
+
     @Test
     @DisplayName("Marking active ticket as lost → status becomes LOST")
     void markLost_fromActive() {
@@ -146,6 +155,8 @@ class TicketTest {
                 () -> ticket.markLost());
     }
 
+    // ── Receipt ───────────────────────────────────────────────────────────
+
     @Test
     @DisplayName("Receipt string contains ticket ID and plate")
     void receipt_containsKeyInfo() {
@@ -153,5 +164,50 @@ class TicketTest {
         String receipt = ticket.toReceiptString();
         assertTrue(receipt.contains(ticket.getTicketId()));
         assertTrue(receipt.contains("34 ABC 001"));
+    }
+
+    // ── DummyDataGenerator integration ───────────────────────────────────
+
+    @Test
+    @DisplayName("Ticket created from a generated vehicle is valid")
+    void dummy_ticketFromGeneratedVehicle() {
+        Vehicle v = DummyDataGenerator.vehicle(VehicleType.CAR);
+        ParkingSpot s = new ParkingSpot("F0-S99", 0, SpotType.STANDARD);
+        s.park(v);
+        Ticket t = new Ticket(v, s);
+
+        assertNotNull(t.getTicketId());
+        assertEquals(TicketStatus.ACTIVE, t.getStatus());
+        assertEquals(v.getLicensePlate(), t.getVehicle().getLicensePlate());
+    }
+
+    @Test
+    @DisplayName("Each generated ticket gets a unique ticket ID")
+    void dummy_uniqueTicketIds() {
+        java.util.Set<String> ids = new java.util.HashSet<>();
+        for (int i = 0; i < 20; i++) {
+            Vehicle v = DummyDataGenerator.vehicle(VehicleType.CAR);
+            ParkingSpot s = new ParkingSpot("F0-S" + i, 0, SpotType.STANDARD);
+            s.park(v);
+            ids.add(new Ticket(v, s).getTicketId());
+        }
+        assertEquals(20, ids.size(), "Every ticket should have a unique ID");
+    }
+
+    @Test
+    @DisplayName("Full lifecycle with generated vehicle completes cleanly")
+    void dummy_fullLifecycle() {
+        Vehicle v = DummyDataGenerator.vehicle(VehicleType.MOTORCYCLE);
+        ParkingSpot s = new ParkingSpot("F0-S98", 0, SpotType.MOTORCYCLE);
+        s.park(v);
+        Ticket t = new Ticket(v, s);
+
+        assertEquals(TicketStatus.ACTIVE, t.getStatus());
+        t.pay(15.0, 20.0);
+        assertEquals(TicketStatus.PAID, t.getStatus());
+        assertEquals(5.0, t.getChange(), 0.001);
+        t.closeOnExit();
+        assertEquals(TicketStatus.EXITED, t.getStatus());
+        assertNotNull(t.getExitTime());
     }
 }
