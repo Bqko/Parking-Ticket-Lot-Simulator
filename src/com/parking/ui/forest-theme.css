@@ -1,0 +1,81 @@
+/* ═══════════════════════════════════════════════════
+   Forest Green Theme
+   Deep woodland base, emerald accent, earthy greens
+   ═══════════════════════════════════════════════════ */
+
+/* ── Table base ── */
+.table-view {
+    -fx-background-color: #0F1A0F;
+    -fx-border-color: #1A2E1A;
+    -fx-border-radius: 12;
+    -fx-background-radius: 12;
+}
+
+/* ── Column headers ── */
+.table-view .column-header-background {
+    -fx-background-color: #162416;
+    -fx-background-radius: 12 12 0 0;
+}
+.table-view .column-header .label {
+    -fx-text-fill: #5A8C5A;
+    -fx-font-weight: bold;
+    -fx-font-size: 12px;
+}
+.table-view .column-header {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent transparent #1A2E1A transparent;
+    -fx-border-width: 0 0 2 0;
+}
+
+/* ── Rows ── */
+.table-row-cell {
+    -fx-background-color: #0F1A0F;
+    -fx-border-color: transparent transparent #1A2E1A transparent;
+    -fx-border-width: 0 0 1 0;
+    -fx-table-cell-border-color: transparent;
+}
+.table-row-cell:odd {
+    -fx-background-color: #162416;
+}
+.table-row-cell:selected {
+    -fx-background-color: #16A34A28;
+    -fx-border-color: #16A34A55;
+}
+.table-row-cell:hover {
+    -fx-background-color: #16A34A14;
+}
+
+/* ── Cell text ── */
+.table-cell {
+    -fx-text-fill: #ECFDF5;
+    -fx-font-size: 13px;
+    -fx-padding: 10 14 10 14;
+    -fx-background-color: transparent;
+    -fx-alignment: CENTER-LEFT;
+}
+.table-row-cell:selected .table-cell {
+    -fx-text-fill: #ECFDF5;
+}
+
+/* ── Sort arrow ── */
+.table-view .arrow {
+    -fx-background-color: #16A34A;
+}
+
+/* ── Scrollbar ── */
+.table-view .scroll-bar:vertical {
+    -fx-background-color: #0F1A0F;
+}
+.table-view .scroll-bar:vertical .thumb,
+.table-view .scroll-bar:horizontal .thumb {
+    -fx-background-color: #2A4A2A;
+    -fx-background-radius: 4;
+}
+.table-view .scroll-bar .track {
+    -fx-background-color: #0F1A0F;
+}
+
+/* ── Focus ring ── */
+.table-view:focused {
+    -fx-border-color: #1A2E1A;
+}

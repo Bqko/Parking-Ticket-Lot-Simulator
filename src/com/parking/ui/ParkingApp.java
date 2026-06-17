@@ -1,5 +1,9 @@
 package com.parking.ui;
 
+import com.parking.db.SpotRepository;
+import com.parking.db.PreferencesRepository;
+import com.parking.model.ParkingLot;
+import com.parking.model.ParkingSpot;
 import com.parking.service.TicketManager;
 import javafx.animation.*;
 import javafx.application.Application;
@@ -90,6 +94,8 @@ public class ParkingApp extends Application {
         stage.setMinHeight(520);
 
         com.parking.service.PricingTier.installDefaults();
+        loadSpotsFromDb();
+        loadSavedTheme();                 // ← restore last theme before first paint
 
         com.parking.service.OccupancyObserver.getInstance().addListener(event ->
                 Platform.runLater(() -> {
@@ -101,7 +107,10 @@ public class ParkingApp extends Application {
                 })
         );
 
-        stage.setOnCloseRequest(e -> TICKET_MANAGER.saveSession());
+        stage.setOnCloseRequest(e -> {
+            TICKET_MANAGER.saveSession();
+            saveTheme();                    // ← persist active theme
+        });
 
         BorderPane root = buildShell();
         mainScene = new Scene(root, 1280, 800);
@@ -112,13 +121,71 @@ public class ParkingApp extends Application {
         showPage("home");
 
         // ── Rebuild entire UI whenever theme changes ──────────────────────
-        Theme.isDark.addListener((obs, oldVal, newVal) -> Platform.runLater(() -> {
-            refreshTokens();                    // ← sync fields before rebuild
+        // Listen on Theme.current (the full ThemeId) so switching between
+        // any two themes triggers a rebuild. The old isDark listener only
+        // fired when crossing the dark/light boundary, so Dark -> Midnight
+        // -> Forest were silently ignored.
+        Theme.current.addListener((obs, oldVal, newVal) -> Platform.runLater(() -> {
+            refreshTokens();
             mainScene.setFill(Color.web(Theme.BG_BASE()));
             BorderPane newRoot = buildShell();
             mainScene.setRoot(newRoot);
             showPage(activeNav);
         }));
+    }
+
+    // ── DB startup sync ───────────────────────────────────────────────────
+
+    /**
+     * Replaces ParkingLot's hardcoded in-memory spots with the persisted
+     * state from the database. Called once at startup.
+     *
+     * Without this, ParkingLot.initializeSpots() always rebuilds the same
+     * 120-spot default layout on every restart, ignoring any spots that were
+     * added or removed via the Admin Panel.
+     */
+    // ── Theme persistence ─────────────────────────────────────────────────
+
+    private void loadSavedTheme() {
+        String saved = new PreferencesRepository()
+                .get(PreferencesRepository.KEY_THEME, Theme.ThemeId.DARK.name());
+        try {
+            Theme.ThemeId id = Theme.ThemeId.valueOf(saved);
+            Theme.setTheme(id);
+            refreshTokens();
+        } catch (IllegalArgumentException ignored) {
+            // Unknown value in DB — fall back to DARK silently
+        }
+    }
+
+    private void saveTheme() {
+        new PreferencesRepository()
+                .set(PreferencesRepository.KEY_THEME, Theme.current.get().name());
+    }
+
+    private void loadSpotsFromDb() {
+        SpotRepository spotRepo = new SpotRepository();
+        java.util.List<ParkingSpot> dbSpots = spotRepo.loadAll();
+        if (dbSpots.isEmpty()) return;  // first run — seed hasn't populated yet
+
+        ParkingLot lot = ParkingLot.getInstance();
+
+        // Remove the default spots initializeSpots() just created
+        lot.getAllSpots().stream()
+                .map(ParkingSpot::getSpotId)
+                .toList()   // snapshot — avoid ConcurrentModificationException
+                .forEach(id -> {
+                    try { lot.removeSpot(id); }
+                    catch (Exception ignored) {}
+                });
+
+        // Re-add from DB
+        for (ParkingSpot spot : dbSpots) {
+            try { lot.addSpot(spot); }
+            catch (IllegalArgumentException ignored) {}
+        }
+
+        System.out.println("✅ Loaded " + dbSpots.size() + " spots from database.");
     }
 
     // ── App shell ─────────────────────────────────────────────────────────
@@ -196,30 +263,61 @@ public class ParkingApp extends Application {
         return sb;
     }
 
-    // ── Theme toggle button ───────────────────────────────────────────────
+    // ── Theme picker (all 5 themes) ───────────────────────────────────────
 
-    private HBox buildThemeToggle() {
-        HBox row = new HBox(10);
-        row.setAlignment(Pos.CENTER_LEFT);
-        row.setPadding(new Insets(12, 16, 4, 16));
+    private VBox buildThemeToggle() {
+        VBox wrapper = new VBox(6);
+        wrapper.setPadding(new Insets(10, 14, 6, 14));
 
-        Label icon = new Label(Theme.isDark.get() ? "☀️" : "🌙");
-        icon.setFont(Font.font("System", 14));
-
-        Label lbl = new Label(Theme.isDark.get() ? "Light mode" : "Dark mode");
-        lbl.setFont(Font.font("System", 12));
+        Label lbl = new Label("THEME");
+        lbl.setFont(Font.font("System", FontWeight.BOLD, 10));
         lbl.setTextFill(Color.web(Theme.TEXT_M()));
 
-        row.getChildren().addAll(icon, lbl);
-        row.setCursor(javafx.scene.Cursor.HAND);
-        row.setOnMouseClicked(e -> Theme.toggle());
+        ComboBox<Theme.ThemeId> combo = new ComboBox<>();
+        combo.getItems().addAll(Theme.ThemeId.values());
+        combo.setValue(Theme.current.get());
+        combo.setMaxWidth(Double.MAX_VALUE);
+        combo.setCursor(javafx.scene.Cursor.HAND);
 
-        String hoverBg = Theme.isDark.get() ? Theme.BORDER() : "#E2E8F0";
-        row.setOnMouseEntered(e -> row.setStyle(
-                "-fx-background-color: " + hoverBg + "; -fx-background-radius: 8;"));
-        row.setOnMouseExited(e -> row.setStyle("-fx-background-color: transparent;"));
+        // Cell factory — show emoji + display name
+        javafx.util.Callback<javafx.scene.control.ListView<Theme.ThemeId>,
+                javafx.scene.control.ListCell<Theme.ThemeId>> cellFactory = lv -> new javafx.scene.control.ListCell<>() {
+            @Override protected void updateItem(Theme.ThemeId item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) { setText(null); return; }
+                String emoji = switch (item) {
+                    case DARK     -> "🌑";
+                    case LIGHT    -> "☀️";
+                    case MIDNIGHT -> "🌌";
+                    case FOREST   -> "🌲";
+                    case ROSE     -> "🌸";
+                };
+                setText(emoji + "  " + item.displayName);
+            }
+        };
+        combo.setCellFactory(cellFactory);
+        combo.setButtonCell(cellFactory.call(null));
 
-        return row;
+        combo.setStyle(
+                "-fx-background-color: " + Theme.BG_RAISED() + ";" +
+                        "-fx-border-color: "     + Theme.BORDER_LIT() + ";" +
+                        "-fx-border-radius: 8;" +
+                        "-fx-background-radius: 8;" +
+                        "-fx-text-fill: "        + Theme.TEXT_H() + ";" +
+                        "-fx-font-size: 12px;" +
+                        "-fx-cursor: hand;"
+        );
+
+        combo.setOnAction(e -> {
+            Theme.ThemeId selected = combo.getValue();
+            if (selected != null && selected != Theme.current.get()) {
+                Theme.setTheme(selected);
+                // Theme.current listener in start() handles the rebuild
+            }
+        });
+
+        wrapper.getChildren().addAll(lbl, combo);
+        return wrapper;
     }
 
     HBox navItem(String id, String icon, String label) {
@@ -337,6 +435,24 @@ public class ParkingApp extends Application {
                 Animations.pageEnter(newPage);
             });
         }
+    }
+
+    /**
+     * Navigates directly to AdminScreen after a successful login.
+     * Bypasses pageExit/pageEnter entirely to avoid animation race conditions.
+     */
+    void showAdmin() {
+        activeNav = "admin";
+        sidebar.lookupAll("*").forEach(n -> {
+            if (n instanceof HBox item && item.getUserData() instanceof Object[] data) {
+                String itemId = (String) data[0];
+                ((Runnable)(itemId.equals("admin") ? data[1] : data[2])).run();
+            }
+        });
+        javafx.scene.Node adminPage = new AdminScreen(this).build();
+        adminPage.setOpacity(1);
+        adminPage.setTranslateX(0);
+        contentArea.getChildren().setAll(adminPage);
     }
 
     // ── Home page ─────────────────────────────────────────────────────────

@@ -15,14 +15,13 @@ import javafx.util.Duration;
  * Login screen that guards the Admin Panel.
  *
  * <p>Shown whenever the user clicks "Admin Panel" in the sidebar.
- * On successful authentication the callback {@code onSuccess} is invoked,
- * which switches the content area to {@link AdminScreen}.</p>
+ * On successful authentication the content area is switched directly
+ * to {@link AdminScreen} via {@code app.switchContent()}.</p>
  */
 public class AdminLoginScreen {
 
-    private final ParkingApp        app;
-    private final AdminRepository   adminRepo;
-    private final Runnable          onSuccess;   // called after successful login
+    private final ParkingApp      app;
+    private final AdminRepository adminRepo;
 
     private TextField     usernameField;
     private PasswordField passwordField;
@@ -33,20 +32,19 @@ public class AdminLoginScreen {
     private int  failedAttempts = 0;
     private long lockedUntil   = 0;
 
-    public AdminLoginScreen(ParkingApp app, Runnable onSuccess) {
+    public AdminLoginScreen(ParkingApp app, Runnable ignored) {
         this.app       = app;
         this.adminRepo = new AdminRepository();
-        this.onSuccess = onSuccess;
+        // The Runnable parameter is kept for API compatibility but is no longer
+        // used — navigation is handled directly via app.switchContent() so the
+        // login screen fully controls the transition.
     }
 
     Node build() {
-        // Full-page centered layout
         StackPane root = new StackPane();
         root.setStyle("-fx-background-color: " + ParkingApp.BG_BASE + ";");
 
         VBox card = buildLoginCard();
-
-        // Subtle animated background dots (decorative)
         root.getChildren().addAll(buildBgDecor(), card);
         StackPane.setAlignment(card, Pos.CENTER);
 
@@ -63,7 +61,7 @@ public class AdminLoginScreen {
         card.setStyle(
                 "-fx-background-color: " + ParkingApp.BG_SURFACE + ";" +
                         "-fx-background-radius: 20;" +
-                        "-fx-border-color: " + ParkingApp.BORDER + ";" +
+                        "-fx-border-color: "     + ParkingApp.BORDER + ";" +
                         "-fx-border-radius: 20;" +
                         "-fx-border-width: 1;" +
                         "-fx-effect: dropshadow(gaussian, #00000088, 40, 0.3, 0, 8);"
@@ -73,7 +71,6 @@ public class AdminLoginScreen {
         VBox header = new VBox(8);
         header.setAlignment(Pos.CENTER);
 
-        // Lock icon circle
         StackPane iconCircle = new StackPane();
         Circle bg = new Circle(30);
         bg.setFill(Color.web(ParkingApp.ACCENT + "22"));
@@ -96,7 +93,6 @@ public class AdminLoginScreen {
 
         header.getChildren().addAll(iconCircle, title, sub);
 
-        // ── Divider ──
         Separator sep = new Separator();
         sep.setStyle("-fx-background-color: " + ParkingApp.BORDER + ";");
 
@@ -111,19 +107,20 @@ public class AdminLoginScreen {
         passwordField.setFont(Font.font("System", 13));
         String pfBase =
                 "-fx-background-color: " + ParkingApp.BG_BASE + ";" +
-                        "-fx-text-fill: " + ParkingApp.TEXT_H + ";" +
-                        "-fx-prompt-text-fill: " + ParkingApp.TEXT_M + ";" +
+                        "-fx-text-fill: "            + ParkingApp.TEXT_H + ";" +
+                        "-fx-prompt-text-fill: "     + ParkingApp.TEXT_M + ";" +
                         "-fx-background-radius: 10;" +
                         "-fx-border-radius: 10;" +
                         "-fx-border-width: 1;" +
                         "-fx-padding: 0 14 0 14;";
         passwordField.setStyle(pfBase + "-fx-border-color: " + ParkingApp.BORDER_LIT + ";");
         passwordField.focusedProperty().addListener((obs, o, f) ->
-                passwordField.setStyle(pfBase + "-fx-border-color: " + (f ? ParkingApp.ACCENT : ParkingApp.BORDER_LIT) + ";"));
+                passwordField.setStyle(pfBase + "-fx-border-color: " +
+                        (f ? ParkingApp.ACCENT : ParkingApp.BORDER_LIT) + ";"));
         passwordField.setOnAction(e -> handleLogin());
         VBox passwordGroup = ParkingApp.fieldGroup("PASSWORD", passwordField);
 
-        // ── Status banner (hidden until needed) ──
+        // ── Status banner ──
         statusLabel = new Label("");
         statusLabel.setFont(Font.font("System", 13));
         statusLabel.setWrapText(true);
@@ -131,11 +128,10 @@ public class AdminLoginScreen {
         statusLabel.setMaxWidth(Double.MAX_VALUE);
         statusLabel.setPadding(new Insets(10, 14, 10, 14));
 
-        // ── Login button ──
+        // ── Buttons ──
         loginBtn = ParkingApp.primaryBtn("Login  →", ParkingApp.ACCENT);
         loginBtn.setOnAction(e -> { Animations.buttonPulse(loginBtn); handleLogin(); });
 
-        // ── Back link ──
         Button backBtn = ParkingApp.ghostBtn("← Back to Home");
         backBtn.setMaxWidth(Double.MAX_VALUE);
         backBtn.setOnAction(e -> app.showPage("home"));
@@ -168,8 +164,6 @@ public class AdminLoginScreen {
     private Pane buildBgDecor() {
         Pane pane = new Pane();
         pane.setMouseTransparent(true);
-
-        // A few large, very faint circles to add depth
         int[][] circles = {
                 {-80, -80, 260},
                 {900, 600, 200},
@@ -191,7 +185,7 @@ public class AdminLoginScreen {
     // ── Handler ───────────────────────────────────────────────────────────
 
     private void handleLogin() {
-        // Check lockout
+        // Lockout check
         if (System.currentTimeMillis() < lockedUntil) {
             long secsLeft = (lockedUntil - System.currentTimeMillis()) / 1000;
             showStatus("Too many failed attempts. Try again in " + secsLeft + "s.", ParkingApp.WARNING);
@@ -207,7 +201,6 @@ public class AdminLoginScreen {
         loginBtn.setDisable(true);
         loginBtn.setText("Authenticating…");
 
-        // Slight delay for UX (avoids instant flash)
         PauseTransition pause = new PauseTransition(Duration.millis(400));
         pause.setOnFinished(e -> {
             AdminRepository.AdminRecord admin = adminRepo.authenticate(username, password);
@@ -217,19 +210,21 @@ public class AdminLoginScreen {
             if (admin != null) {
                 failedAttempts = 0;
                 showStatus("✓  Welcome, " + admin.displayName + "!", ParkingApp.SUCCESS);
-                // Short delay then switch to admin screen
+
                 PauseTransition nav = new PauseTransition(Duration.millis(600));
-                nav.setOnFinished(ev -> onSuccess.run());
+                nav.setOnFinished(ev -> app.showAdmin());
                 nav.play();
+
             } else {
                 failedAttempts++;
                 passwordField.clear();
                 if (failedAttempts >= 5) {
-                    lockedUntil = System.currentTimeMillis() + 30_000; // 30 sec lockout
+                    lockedUntil = System.currentTimeMillis() + 30_000;
                     showStatus("✗  Too many failed attempts. Locked for 30 seconds.", ParkingApp.DANGER);
                 } else {
                     int remaining = 5 - failedAttempts;
-                    showStatus("✗  Invalid username or password. " + remaining + " attempt(s) remaining.", ParkingApp.DANGER);
+                    showStatus("✗  Invalid username or password. " + remaining + " attempt(s) remaining.",
+                            ParkingApp.DANGER);
                 }
                 Animations.shake(statusLabel);
             }
@@ -243,7 +238,7 @@ public class AdminLoginScreen {
         statusLabel.setStyle(
                 "-fx-background-color: " + color + "18;" +
                         "-fx-background-radius: 8;" +
-                        "-fx-border-color: " + color + "44;" +
+                        "-fx-border-color: "     + color + "44;" +
                         "-fx-border-radius: 8;" +
                         "-fx-border-width: 1;"
         );

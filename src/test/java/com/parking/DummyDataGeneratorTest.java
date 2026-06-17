@@ -43,13 +43,51 @@ class DummyDataGeneratorTest {
     }
 
     @Test
-    @DisplayName("plate() matches Georgian format ABC-123")
+    @DisplayName("plate() matches car format AB-123-CD")
     void plate_formatIsValid() {
         for (int i = 0; i < 50; i++) {
             String plate = DummyDataGenerator.plate();
             assertTrue(plate.matches("[A-Z]{2}-\\d{3}-[A-Z]{2}"),
-                    "Plate '" + plate + "' does not match AB-123-CD format");
+                    "Car plate '" + plate + "' does not match AB-123-CD format");
         }
+    }
+
+    @Test
+    @DisplayName("plate(MOTORCYCLE) matches motorcycle format 12/ABCD")
+    void plate_motorcycleFormatIsValid() {
+        for (int i = 0; i < 50; i++) {
+            String plate = DummyDataGenerator.plate(com.parking.enums.VehicleType.MOTORCYCLE);
+            assertTrue(plate.matches("\\d{2}/[A-Z]{4}"),
+                    "Motorcycle plate '" + plate + "' does not match 12/ABCD format");
+        }
+    }
+
+    @Test
+    @DisplayName("plate(CAR) still matches car format AB-123-CD")
+    void plate_carTypeFormatIsValid() {
+        for (int i = 0; i < 20; i++) {
+            String plate = DummyDataGenerator.plate(com.parking.enums.VehicleType.CAR);
+            assertTrue(plate.matches("[A-Z]{2}-\\d{3}-[A-Z]{2}"),
+                    "Car plate '" + plate + "' does not match AB-123-CD format");
+        }
+    }
+
+    @Test
+    @DisplayName("motorcyclePlates(n) returns n unique motorcycle plates")
+    void motorcyclePlates_uniqueList() {
+        List<String> plates = DummyDataGenerator.motorcyclePlates(20);
+        assertEquals(20, plates.size());
+        assertEquals(20, new HashSet<>(plates).size(), "All motorcycle plates should be unique");
+        plates.forEach(p -> assertTrue(p.matches("\\d{2}/[A-Z]{4}"),
+                "Plate '" + p + "' does not match motorcycle format"));
+    }
+
+    @Test
+    @DisplayName("vehicles(n, MOTORCYCLE) all have motorcycle plate format")
+    void vehicles_motorcyclePlateFormat() {
+        DummyDataGenerator.vehicles(10, VehicleType.MOTORCYCLE).forEach(v ->
+                assertTrue(v.getLicensePlate().matches("\\d{2}/[A-Z]{4}"),
+                        "Expected motorcycle plate format, got: " + v.getLicensePlate()));
     }
 
     @Test

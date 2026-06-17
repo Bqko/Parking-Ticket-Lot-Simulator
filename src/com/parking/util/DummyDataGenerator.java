@@ -5,15 +5,19 @@ import com.parking.model.Vehicle;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Random;
+import java.util.Set;
+import java.util.function.Supplier;
 
 /**
  * Generates realistic-looking dummy data for testing the Parking Lot Ticket Simulator.
  *
  * <p>All generated data follows Georgian conventions:
  * <ul>
- *   <li>License plates — Georgia's standard format (e.g. {@code ABC-123})</li>
+ *   <li>License plates (car/truck)  — {@code AB-123-CD} format</li>
+ *   <li>License plates (motorcycle) — {@code 12/ABCD} format (2 digits / 4 letters)</li>
  *   <li>Names         — Common Georgian first and last names</li>
  *   <li>Phone numbers — Georgian mobile format ({@code +995 5XX XXX XXX})</li>
  * </ul>
@@ -21,18 +25,23 @@ import java.util.Random;
  * <h3>Usage in tests</h3>
  * <pre>
  *   // Single items
- *   String plate   = DummyDataGenerator.plate();           // "GEL-447"
- *   String name    = DummyDataGenerator.fullName();        // "გიორგი ბერიძე"
- *   String phone   = DummyDataGenerator.phone();           // "+995 555 123 456"
- *   Vehicle v      = DummyDataGenerator.vehicle();         // random type
- *   Vehicle car    = DummyDataGenerator.vehicle(VehicleType.CAR);
+ *   String plate      = DummyDataGenerator.plate();                        // "TBL-472-KN" (car)
+ *   String motoPlate  = DummyDataGenerator.plate(VehicleType.MOTORCYCLE);  // "47/BKRS"
+ *   String name       = DummyDataGenerator.fullName();                     // "გიორგი ბერიძე"
+ *   String phone      = DummyDataGenerator.phone();                        // "+995 555 123 456"
+ *   Vehicle v         = DummyDataGenerator.vehicle();                      // random type
+ *   Vehicle car       = DummyDataGenerator.vehicle(VehicleType.CAR);
  *
  *   // Bulk
  *   List&lt;Vehicle&gt; fleet = DummyDataGenerator.vehicles(10);
  *   List&lt;String&gt;  plates = DummyDataGenerator.plates(5);
  * </pre>
  *
- * <p>Pass a fixed seed to {@link #withSeed(long)} for reproducible test runs.</p>
+ * <p>Pass a fixed seed to {@link #withSeed(long)} for reproducible test runs.
+ * An instance created via {@link #withSeed(long)} also guarantees every plate
+ * it hands out through {@link #nextPlate()} / {@link #nextPlate(VehicleType)}
+ * is unique for the lifetime of that instance — handy when seeding dozens of
+ * dummy tickets that must never collide on license plate.</p>
  */
 public class DummyDataGenerator {
 
@@ -50,11 +59,19 @@ public class DummyDataGenerator {
     /** Per-instance RNG (used when calling instance methods via {@link #withSeed}). */
     private Random localRng = rng;
 
+    /**
+     * Plates already handed out by THIS instance's {@link #nextPlate()} /
+     * {@link #nextPlate(VehicleType)}. Ensures no two tickets seeded from the
+     * same generator instance ever share a license plate.
+     */
+    private final Set<String> usedPlates = new HashSet<>();
+
     // ── Georgian license plate data ───────────────────────────────────────
 
     /**
-     * Georgia uses a 3-letter + 3-digit format: {@code ABC-123}.
-     * Letters are from a subset that avoids visually ambiguous chars.
+     * Car/truck plates: 2 letters + 3 digits + 2 letters → {@code AB-123-CD}.
+     * Motorcycle plates: 2 digits + slash + 4 letters   → {@code 12/ABCD}.
+     * Both use this letter pool to avoid visually ambiguous characters.
      */
     private static final String PLATE_LETTERS = "ABCDEFGHJKLMNPRSTUVWXZ";
 
@@ -109,8 +126,22 @@ public class DummyDataGenerator {
     // ── Static factory methods (use shared RNG) ───────────────────────────
 
     /**
-     * Generates a random Georgian license plate in {@code ABC-123} format.
-     * Example: {@code "TBL-472"}
+     * Generates a random Georgian license plate for the given vehicle type.
+     * <ul>
+     *   <li>CAR / TRUCK  → {@code AB-123-CD}</li>
+     *   <li>MOTORCYCLE   → {@code 12/ABCD}</li>
+     * </ul>
+     */
+    public static String plate(VehicleType type) {
+        return type == VehicleType.MOTORCYCLE
+                ? generateMotorcyclePlate(rng)
+                : generatePlate(rng);
+    }
+
+    /**
+     * Generates a random Georgian license plate in {@code AB-123-CD} format.
+     * For motorcycle plates use {@link #plate(VehicleType)}.
+     * Example: {@code "TK-472-NB"}
      */
     public static String plate() {
         return generatePlate(rng);
@@ -194,45 +225,58 @@ public class DummyDataGenerator {
     }
 
     /**
-     * Generates a {@link Vehicle} with a random plate and random {@link VehicleType}.
+     * Generates a {@link Vehicle} with a random plate (format matches the type)
+     * and random {@link VehicleType}.
      */
     public static Vehicle vehicle() {
         VehicleType type = randomVehicleType(rng);
-        return new Vehicle(plate(), type);
+        return new Vehicle(plate(type), type);
     }
 
     /**
-     * Generates a {@link Vehicle} with a random plate and the given {@link VehicleType}.
+     * Generates a {@link Vehicle} with a type-appropriate plate and the given {@link VehicleType}.
      */
     public static Vehicle vehicle(VehicleType type) {
-        return new Vehicle(plate(), type);
+        return new Vehicle(plate(type), type);
     }
 
     /**
-     * Generates a {@link Vehicle} with a random plate, given type, and explicit entry time.
+     * Generates a {@link Vehicle} with a type-appropriate plate, given type, and explicit entry time.
      * Useful for testing fee calculations at specific durations.
      */
     public static Vehicle vehicle(VehicleType type, LocalDateTime entryTime) {
-        return new Vehicle(plate(), type, entryTime);
+        return new Vehicle(plate(type), type, entryTime);
     }
 
     /**
      * Generates {@code count} vehicles with unique plates and random types.
+     * Each vehicle's plate format matches its type.
      */
     public static List<Vehicle> vehicles(int count) {
-        List<String> uniquePlates = plates(count);
         List<Vehicle> result = new ArrayList<>(count);
-        for (String p : uniquePlates) {
-            result.add(new Vehicle(p, randomVehicleType(rng)));
+        // Track used plates per format to guarantee uniqueness across types
+        List<String> usedPlates = new ArrayList<>();
+        while (result.size() < count) {
+            VehicleType type = randomVehicleType(rng);
+            String p = type == VehicleType.MOTORCYCLE
+                    ? generateMotorcyclePlate(rng)
+                    : generatePlate(rng);
+            if (!usedPlates.contains(p)) {
+                usedPlates.add(p);
+                result.add(new Vehicle(p, type));
+            }
         }
         return result;
     }
 
     /**
      * Generates {@code count} vehicles all of the specified type, with unique plates.
+     * Motorcycle vehicles get {@code 12/ABCD} format; others get {@code AB-123-CD}.
      */
     public static List<Vehicle> vehicles(int count, VehicleType type) {
-        List<String> uniquePlates = plates(count);
+        List<String> uniquePlates = type == VehicleType.MOTORCYCLE
+                ? motorcyclePlates(count)
+                : plates(count);
         List<Vehicle> result = new ArrayList<>(count);
         for (String p : uniquePlates) {
             result.add(new Vehicle(p, type));
@@ -242,8 +286,23 @@ public class DummyDataGenerator {
 
     // ── Instance methods (use seeded RNG for reproducibility) ─────────────
 
-    /** Seeded version of {@link #plate()}. */
-    public String nextPlate()         { return generatePlate(localRng); }
+    /**
+     * Seeded version of {@link #plate()} — generates a car/truck format plate.
+     * Guaranteed not to repeat a plate already handed out by this instance.
+     */
+    public String nextPlate() {
+        return uniquePlate(() -> generatePlate(localRng));
+    }
+
+    /**
+     * Seeded version of {@link #plate(VehicleType)} — format matches the given type.
+     * Guaranteed not to repeat a plate already handed out by this instance.
+     */
+    public String nextPlate(VehicleType type) {
+        return uniquePlate(() -> type == VehicleType.MOTORCYCLE
+                ? generateMotorcyclePlate(localRng)
+                : generatePlate(localRng));
+    }
 
     /** Seeded version of {@link #fullName()}. */
     public String nextFullName()      {
@@ -263,13 +322,47 @@ public class DummyDataGenerator {
     public String nextPhone()         { return generatePhone(localRng); }
 
     /** Seeded version of {@link #vehicle()}. */
-    public Vehicle nextVehicle()      { return new Vehicle(nextPlate(), randomVehicleType(localRng)); }
+    public Vehicle nextVehicle() {
+        VehicleType type = randomVehicleType(localRng);
+        return new Vehicle(nextPlate(type), type);
+    }
 
     /** Seeded version of {@link #vehicle(VehicleType)}. */
-    public Vehicle nextVehicle(VehicleType type) { return new Vehicle(nextPlate(), type); }
+    public Vehicle nextVehicle(VehicleType type) { return new Vehicle(nextPlate(type), type); }
+
+    /**
+     * Clears this instance's record of previously issued plates, so
+     * {@link #nextPlate()} / {@link #nextPlate(VehicleType)} may reuse
+     * earlier values again. Not needed in normal use — only call this
+     * if you intentionally want to start a fresh uniqueness window on
+     * the same generator instance.
+     */
+    public void resetUsedPlates() {
+        usedPlates.clear();
+    }
 
     // ── Private helpers ───────────────────────────────────────────────────
 
+    /**
+     * Repeatedly invokes {@code generator} until it produces a plate not yet
+     * seen by this instance, records it, and returns it. Bails out with an
+     * {@link IllegalStateException} rather than looping forever if the
+     * format's plate space is somehow exhausted.
+     */
+    private String uniquePlate(Supplier<String> generator) {
+        String candidate;
+        int attempts = 0;
+        do {
+            candidate = generator.get();
+            if (++attempts > 10_000) {
+                throw new IllegalStateException(
+                        "Could not generate a unique plate after 10,000 attempts — plate pool exhausted.");
+            }
+        } while (!usedPlates.add(candidate));
+        return candidate;
+    }
+
+    /** Car/truck format: {@code AB-123-CD} */
     private static String generatePlate(Random r) {
         char l1 = PLATE_LETTERS.charAt(r.nextInt(PLATE_LETTERS.length()));
         char l2 = PLATE_LETTERS.charAt(r.nextInt(PLATE_LETTERS.length()));
@@ -277,6 +370,28 @@ public class DummyDataGenerator {
         char l3 = PLATE_LETTERS.charAt(r.nextInt(PLATE_LETTERS.length()));
         char l4 = PLATE_LETTERS.charAt(r.nextInt(PLATE_LETTERS.length()));
         return "" + l1 + l2 + "-" + n + "-" + l3 + l4;
+    }
+
+    /** Motorcycle format: {@code 12/ABCD} — 2 digits, slash, 4 letters */
+    private static String generateMotorcyclePlate(Random r) {
+        int  n  = 10 + r.nextInt(90);   // 10–99
+        char l1 = PLATE_LETTERS.charAt(r.nextInt(PLATE_LETTERS.length()));
+        char l2 = PLATE_LETTERS.charAt(r.nextInt(PLATE_LETTERS.length()));
+        char l3 = PLATE_LETTERS.charAt(r.nextInt(PLATE_LETTERS.length()));
+        char l4 = PLATE_LETTERS.charAt(r.nextInt(PLATE_LETTERS.length()));
+        return "" + n + "/" + l1 + l2 + l3 + l4;
+    }
+
+    /**
+     * Generates {@code count} unique motorcycle license plates.
+     */
+    public static List<String> motorcyclePlates(int count) {
+        List<String> result = new ArrayList<>(count);
+        while (result.size() < count) {
+            String p = generateMotorcyclePlate(rng);
+            if (!result.contains(p)) result.add(p);
+        }
+        return result;
     }
 
     private static String generatePhone(Random r) {

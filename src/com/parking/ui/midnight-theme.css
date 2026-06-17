@@ -1,0 +1,81 @@
+/* ═══════════════════════════════════════════════════
+   Midnight Blue Theme
+   Deep navy base, violet accent, cool blue highlights
+   ═══════════════════════════════════════════════════ */
+
+/* ── Table base ── */
+.table-view {
+    -fx-background-color: #0F1629;
+    -fx-border-color: #1E2D4A;
+    -fx-border-radius: 12;
+    -fx-background-radius: 12;
+}
+
+/* ── Column headers ── */
+.table-view .column-header-background {
+    -fx-background-color: #1A2340;
+    -fx-background-radius: 12 12 0 0;
+}
+.table-view .column-header .label {
+    -fx-text-fill: #7C8DB5;
+    -fx-font-weight: bold;
+    -fx-font-size: 12px;
+}
+.table-view .column-header {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent transparent #1E2D4A transparent;
+    -fx-border-width: 0 0 2 0;
+}
+
+/* ── Rows ── */
+.table-row-cell {
+    -fx-background-color: #0F1629;
+    -fx-border-color: transparent transparent #1E2D4A transparent;
+    -fx-border-width: 0 0 1 0;
+    -fx-table-cell-border-color: transparent;
+}
+.table-row-cell:odd {
+    -fx-background-color: #1A2340;
+}
+.table-row-cell:selected {
+    -fx-background-color: #7C3AED28;
+    -fx-border-color: #7C3AED55;
+}
+.table-row-cell:hover {
+    -fx-background-color: #7C3AED14;
+}
+
+/* ── Cell text ── */
+.table-cell {
+    -fx-text-fill: #E8EAF6;
+    -fx-font-size: 13px;
+    -fx-padding: 10 14 10 14;
+    -fx-background-color: transparent;
+    -fx-alignment: CENTER-LEFT;
+}
+.table-row-cell:selected .table-cell {
+    -fx-text-fill: #E8EAF6;
+}
+
+/* ── Sort arrow ── */
+.table-view .arrow {
+    -fx-background-color: #7C3AED;
+}
+
+/* ── Scrollbar ── */
+.table-view .scroll-bar:vertical {
+    -fx-background-color: #0F1629;
+}
+.table-view .scroll-bar:vertical .thumb,
+.table-view .scroll-bar:horizontal .thumb {
+    -fx-background-color: #2D3F60;
+    -fx-background-radius: 4;
+}
+.table-view .scroll-bar .track {
+    -fx-background-color: #0F1629;
+}
+
+/* ── Focus ring ── */
+.table-view:focused {
+    -fx-border-color: #1E2D4A;
+}

@@ -218,6 +218,14 @@ public class DatabaseManager {
                 );
             """);
 
+            // user_preferences — persists UI settings across restarts
+            st.execute("""
+                CREATE TABLE IF NOT EXISTS user_preferences (
+                    key    TEXT PRIMARY KEY,
+                    value  TEXT NOT NULL
+                );
+            """);
+
             System.out.println("✅ Database schema ready.");
 
         } catch (SQLException e) {
@@ -318,8 +326,155 @@ public class DatabaseManager {
                 }
             }
 
+            // Seed dummy historical data on first run only (when tickets table is empty)
+            rs = st.executeQuery("SELECT COUNT(*) FROM tickets");
+            if (rs.getInt(1) == 0) {
+                seedDummyData();
+            }
+
         } catch (SQLException e) {
             System.err.println("Warning: seed data error: " + e.getMessage());
         }
+    }
+
+    // ── Dummy data (first-run only) ───────────────────────────────────────
+
+    /**
+     * Floods the database with 40–50 currently-parked dummy vehicles on the
+     * very first run. This method is only called when the {@code tickets}
+     * table is empty, so it never runs again after the application has been
+     * used even once — even if every one of these dummy vehicles is still
+     * sitting in its spot.
+     *
+     * <p>All generated tickets are inserted with {@code ACTIVE} status and
+     * occupy a real, unique spot in {@code parking_spots}. They are never
+     * given an exit time or marked paid here — they only become
+     * {@code EXITED} if a real user pays and checks them out through the
+     * normal application flow. Nothing in this method ever "exits" them.</p>
+     */
+    private void seedDummyData() {
+        System.out.println("🎲 Seeding dummy parked vehicles (first run only)...");
+
+        java.util.Random rng = new java.util.Random(42); // fixed seed → reproducible layout
+        int ticketCount = 40 + rng.nextInt(11); // 40–50 inclusive
+
+        // Pools of real spot codes, matching exactly what seedData() inserted
+        // into parking_spots (3 floors × 5 motorcycle / 10 compact / 20 standard / 5 large).
+        java.util.List<String> motoPool  = buildSpotCodePool("M", 5);
+        java.util.List<String> largePool = buildSpotCodePool("L", 5);
+        java.util.List<String> carPool   = new java.util.ArrayList<>();
+        carPool.addAll(buildSpotCodePool("C", 10));
+        carPool.addAll(buildSpotCodePool("S", 20));
+
+        java.util.Collections.shuffle(motoPool,  rng);
+        java.util.Collections.shuffle(largePool, rng);
+        java.util.Collections.shuffle(carPool,   rng);
+
+        java.time.LocalDateTime now = java.time.LocalDateTime.now();
+
+        String insertTicket = """
+            INSERT OR IGNORE INTO tickets
+                (ticket_code, license_plate, vehicle_type, spot_code,
+                 floor_number, ticket_status, issued_at)
+            VALUES (?, ?, ?, ?, ?, 'ACTIVE', ?)
+        """;
+
+        String insertCustomer = """
+            INSERT OR IGNORE INTO customers
+                (license_plate, vehicle_type, full_name, phone)
+            VALUES (?, ?, ?, ?)
+        """;
+
+        String occupySpot = "UPDATE parking_spots SET is_occupied = 1 WHERE spot_code = ?";
+
+        java.time.format.DateTimeFormatter fmt =
+                java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+
+        com.parking.util.DummyDataGenerator gen =
+                com.parking.util.DummyDataGenerator.withSeed(42);
+
+        try (PreparedStatement psTicket   = connection.prepareStatement(insertTicket);
+             PreparedStatement psCustomer = connection.prepareStatement(insertCustomer);
+             PreparedStatement psSpot     = connection.prepareStatement(occupySpot)) {
+
+            int seeded = 0;
+
+            for (int i = 0; i < ticketCount; i++) {
+                // Random vehicle type weighted: 60% car, 25% motorcycle, 15% truck
+                com.parking.enums.VehicleType vType;
+                int roll = rng.nextInt(100);
+                if      (roll < 60) vType = com.parking.enums.VehicleType.CAR;
+                else if (roll < 85) vType = com.parking.enums.VehicleType.MOTORCYCLE;
+                else                vType = com.parking.enums.VehicleType.TRUCK;
+
+                java.util.List<String> pool = switch (vType) {
+                    case MOTORCYCLE -> motoPool;
+                    case TRUCK      -> largePool;
+                    default         -> carPool;
+                };
+                if (pool.isEmpty()) continue; // that spot type is full — skip rather than double-park
+
+                // Pop a spot so no two dummy vehicles ever share one
+                String spotCode = pool.remove(pool.size() - 1);
+                int floor = Character.getNumericValue(spotCode.charAt(1)); // "F0-M01" → '0'
+
+                String plate = gen.nextPlate(vType);
+                String name  = gen.nextFullNameLatin();
+                String phone = gen.nextPhone();
+
+                // Parked sometime in the last 0–18 hours, so it reads as
+                // currently parked rather than ancient history.
+                int hoursAgo   = rng.nextInt(18);
+                int minutesAgo = rng.nextInt(60);
+                java.time.LocalDateTime entryTime = now.minusHours(hoursAgo).minusMinutes(minutesAgo);
+
+                String ticketCode = String.format("TKT-%04d-%04d", i + 1, rng.nextInt(9999));
+                String issuedStr  = entryTime.format(fmt);
+
+                psCustomer.setString(1, plate);
+                psCustomer.setString(2, vType.name());
+                psCustomer.setString(3, name);
+                psCustomer.setString(4, phone);
+                psCustomer.addBatch();
+
+                psTicket.setString(1, ticketCode);
+                psTicket.setString(2, plate);
+                psTicket.setString(3, vType.name());
+                psTicket.setString(4, spotCode);
+                psTicket.setInt(5,    floor);
+                psTicket.setString(6, issuedStr);
+                psTicket.addBatch();
+
+                psSpot.setString(1, spotCode);
+                psSpot.addBatch();
+
+                seeded++;
+            }
+
+            psCustomer.executeBatch();
+            psTicket.executeBatch();
+            psSpot.executeBatch();
+
+            System.out.println("✅ Dummy data seeded: " + seeded
+                    + " vehicles currently parked across the lot (all ACTIVE — none will auto-exit).");
+
+        } catch (SQLException e) {
+            System.err.println("Warning: dummy data seeding error: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Builds the list of real spot codes for one spot-type prefix across all
+     * 3 floors, in the exact "F{floor}-{prefix}{NN}" format used when
+     * {@code parking_spots} was originally seeded.
+     */
+    private java.util.List<String> buildSpotCodePool(String prefix, int perFloorCount) {
+        java.util.List<String> pool = new java.util.ArrayList<>();
+        for (int floor = 0; floor < 3; floor++) {
+            for (int i = 1; i <= perFloorCount; i++) {
+                pool.add(String.format("F%d-%s%02d", floor, prefix, i));
+            }
+        }
+        return pool;
     }
 }

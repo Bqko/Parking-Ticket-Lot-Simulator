@@ -39,7 +39,6 @@ public class EntryScreen {
         page.setPadding(new Insets(40, 48, 40, 48));
         page.setStyle("-fx-background-color: " + ParkingApp.BG_BASE + ";");
 
-        // Page header
         HBox header = new HBox(14);
         header.setAlignment(Pos.CENTER_LEFT);
         Label icon = new Label("🚗");
@@ -52,7 +51,6 @@ public class EntryScreen {
         titles.getChildren().addAll(title, sub);
         header.getChildren().addAll(icon, titles);
 
-        // Main row — both cards grow equally
         HBox mainRow = new HBox(20);
         mainRow.setFillHeight(true);
         var formCard    = buildFormCard();
@@ -72,20 +70,16 @@ public class EntryScreen {
         return sp;
     }
 
-    // ── Form card ─────────────────────────────────────────────────────────
-
     private VBox buildFormCard() {
         VBox card = ParkingApp.pageCard("New Entry");
         card.setMaxWidth(Double.MAX_VALUE);
 
-        // ── License plate field (with auto-fill on focus-lost) ──
         plateField = ParkingApp.styledField("e.g.  GK-447-TN");
         plateField.focusedProperty().addListener((obs, wasFocused, isNowFocused) -> {
             if (!isNowFocused) autoFillCustomer();
         });
         VBox plateGroup = ParkingApp.fieldGroup("LICENSE PLATE", plateField);
 
-        // ── Customer name & phone side-by-side ──
         nameField  = ParkingApp.styledField("e.g.  Giorgi Beridze  (optional)");
         phoneField = ParkingApp.styledField("e.g.  +995 555 123 456  (optional)");
 
@@ -99,12 +93,10 @@ public class EntryScreen {
         phoneGroup.setMaxWidth(Double.MAX_VALUE);
         customerRow.getChildren().addAll(nameGroup, phoneGroup);
 
-        // Auto-fill hint label
         Label autoFillHint = new Label("ℹ  Known customers are auto-filled when you enter their plate.");
         autoFillHint.setFont(Font.font("System", 11));
         autoFillHint.setTextFill(Color.web(ParkingApp.TEXT_M));
 
-        // ── Vehicle type selector ──
         Label typeLabel = new Label("VEHICLE TYPE");
         typeLabel.setFont(Font.font("System", FontWeight.BOLD, 12));
         typeLabel.setTextFill(Color.web(ParkingApp.TEXT_M));
@@ -120,14 +112,12 @@ public class EntryScreen {
         VBox typeGroup2 = new VBox(6);
         typeGroup2.getChildren().addAll(typeLabel, typeRow);
 
-        // ── Status banner ──
         statusLabel = new Label("");
         statusLabel.setFont(Font.font("System", 12));
         statusLabel.setWrapText(true);
         statusLabel.setVisible(false);
         statusLabel.setPadding(new Insets(10, 14, 10, 14));
 
-        // ── Buttons ──
         Button submit = ParkingApp.primaryBtn("Issue Ticket  →", ParkingApp.ACCENT);
         submit.setOnAction(e -> { Animations.buttonPulse(submit); handleIssue(); });
 
@@ -157,18 +147,6 @@ public class EntryScreen {
         return card;
     }
 
-    // ── Dummy data button ─────────────────────────────────────────────────
-
-    /**
-     * Builds the "Fill with Dummy Data" button.
-     *
-     * Clicking it generates a random Georgian plate, a random full name,
-     * a random Georgian phone number, and picks a random vehicle type —
-     * all using {@link DummyDataGenerator} — then populates the form fields.
-     *
-     * The button is styled distinctly (warning/amber tone) so it's easy
-     * to spot and won't be confused for a production action.
-     */
     private Button buildDummyButton() {
         Button btn = new Button("🎲  Dummy Data");
         btn.setCursor(javafx.scene.Cursor.HAND);
@@ -196,45 +174,40 @@ public class EntryScreen {
         btn.setStyle(normal);
         btn.setOnMouseEntered(e -> btn.setStyle(hover));
         btn.setOnMouseExited(e  -> btn.setStyle(normal));
-
-        btn.setOnAction(e -> {
-            Animations.buttonPulse(btn);
-            fillDummyData();
-        });
+        btn.setOnAction(e -> { Animations.buttonPulse(btn); fillDummyData(); });
 
         return btn;
     }
 
     /**
      * Generates random Georgian test data and populates all form fields.
-     * Vehicle type chip is also switched to match the generated type.
+     *
+     * FIX: vehicle type is picked FIRST so that DummyDataGenerator.plate(type)
+     * generates the correct format — motorcycles get 12/ABCD, cars and trucks
+     * get AB-123-CD. Previously plate() was called before the type was chosen,
+     * so motorcycles always received a car-format plate.
      */
     private void fillDummyData() {
-        // Generate data
-        String      plate     = DummyDataGenerator.plate();
-        String      name      = DummyDataGenerator.fullNameLatin();
-        String      phone     = DummyDataGenerator.phone();
-        VehicleType type      = randomWeightedType();
+        VehicleType type  = randomWeightedType();            // type first
+        String      plate = DummyDataGenerator.plate(type); // format matches type
+        String      name  = DummyDataGenerator.fullNameLatin();
+        String      phone = DummyDataGenerator.phone();
 
-        // Populate fields
         plateField.setText(plate);
         nameField.setText(name);
         phoneField.setText(phone);
 
-        // Switch the type chip
         typeGroup.getToggles().stream()
                 .filter(t -> t.getUserData() == type)
                 .findFirst()
                 .ifPresent(typeGroup::selectToggle);
 
-        // Show a subtle confirmation in the status banner
         showStatus("🎲  Dummy data filled — plate " + plate + ", " + type.getDisplayName().toLowerCase() + ".",
                 ParkingApp.WARNING);
     }
 
     /**
      * Returns a weighted random vehicle type.
-     * Reflects realistic parking lot distribution:
      * ~70% cars, ~20% motorcycles, ~10% trucks.
      */
     private VehicleType randomWeightedType() {
@@ -243,8 +216,6 @@ public class EntryScreen {
         if (roll < 9) return VehicleType.MOTORCYCLE;
         return VehicleType.TRUCK;
     }
-
-    // ── Result card ───────────────────────────────────────────────────────
 
     private VBox buildResultCard() {
         resultCard = ParkingApp.pageCard("Issued Ticket");
@@ -259,12 +230,6 @@ public class EntryScreen {
         return resultCard;
     }
 
-    // ── Auto-fill known customer ──────────────────────────────────────────
-
-    /**
-     * Called when the plate field loses focus.
-     * If the plate is already in the customers table, pre-fills name & phone.
-     */
     private void autoFillCustomer() {
         String plate = plateField.getText().trim().toUpperCase();
         if (plate.isBlank()) return;
@@ -282,11 +247,9 @@ public class EntryScreen {
                         .filter(t -> t.getUserData() == storedType)
                         .findFirst()
                         .ifPresent(t -> typeGroup.selectToggle(t));
-            } catch (IllegalArgumentException ignored) { /* unknown type — leave as is */ }
+            } catch (IllegalArgumentException ignored) {}
         }
     }
-
-    // ── Handler ───────────────────────────────────────────────────────────
 
     private void handleIssue() {
         String plate = plateField.getText().trim().toUpperCase();
@@ -353,10 +316,7 @@ public class EntryScreen {
         idBox.getChildren().addAll(idLbl, idVal, idNote);
 
         VBox details = new VBox(0);
-        details.setStyle(
-                "-fx-background-color: " + ParkingApp.BG_RAISED + ";" +
-                        "-fx-background-radius: 10;"
-        );
+        details.setStyle("-fx-background-color: " + ParkingApp.BG_RAISED + "; -fx-background-radius: 10;");
         details.getChildren().addAll(
                 detailRow("Customer",      customerName,                              false),
                 detailRow("License Plate", t.getVehicle().getLicensePlate(),          true),
@@ -375,7 +335,6 @@ public class EntryScreen {
         row.setPadding(new Insets(11, 16, 11, 16));
         row.setAlignment(Pos.CENTER_LEFT);
         if (shaded) row.setStyle("-fx-background-color: " + ParkingApp.BG_SURFACE + "55;");
-
         Label keyLbl = new Label(key);
         keyLbl.setFont(Font.font("System", 13));
         keyLbl.setTextFill(Color.web(ParkingApp.TEXT_M));
@@ -384,7 +343,6 @@ public class EntryScreen {
         Label valLbl = new Label(value);
         valLbl.setFont(Font.font("System", FontWeight.BOLD, 13));
         valLbl.setTextFill(Color.web(ParkingApp.TEXT_H));
-
         row.getChildren().addAll(keyLbl, spacer, valLbl);
         return row;
     }
@@ -402,8 +360,6 @@ public class EntryScreen {
         Animations.statusSlideIn(statusLabel);
         if (color.equals(ParkingApp.DANGER)) Animations.shake(statusLabel);
     }
-
-    // ── Type chip toggle ──────────────────────────────────────────────────
 
     private ToggleButton typeChip(String text, VehicleType type, boolean selected) {
         ToggleButton tb = new ToggleButton(text);

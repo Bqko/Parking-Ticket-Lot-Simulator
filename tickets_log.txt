@@ -1,25 +1,475 @@
 === ALL TICKETS IN DATABASE ===
-Generated: 2026-06-05T19:10:03.230044800
+Generated: 2026-06-17T23:05:01.798254800
 ================================
-Ticket ID  : D3CACBA1C5
-Plate      : BAKO
+Ticket ID  : TKT-0044-6530
+Plate      : XN-694-CH
 Type       : Car
-Spot       : F0-S01
-Status     : EXITED
-Entry      : 2026-05-31T23:08:10
-Exit       : 2026-06-05T19:10:03.231103200
-Fee        : 15.00
-Amount paid: 15.00
---------------------------------
-Ticket ID  : AA61D0BF0D
-Plate      : MA-010-KA
-Type       : Car
-Spot       : F0-S01
-Status     : EXITED
-Entry      : 2026-05-30T13:11:17
-Exit       : 2026-06-05T19:10:03.231103200
+Spot       : F2-C05
+Status     : ACTIVE
+Entry      : 2026-06-17T22:45:46
+Exit       : Still parked
 Fee        : 0.00
 Amount paid: 0.00
 --------------------------------
-Total tickets: 2
-Total revenue: 15.00
+Ticket ID  : TKT-0028-7960
+Plate      : UZ-593-UU
+Type       : Car
+Spot       : F2-S09
+Status     : ACTIVE
+Entry      : 2026-06-17T21:30:46
+Exit       : Still parked
+Fee        : 0.00
+Amount paid: 0.00
+--------------------------------
+Ticket ID  : TKT-0043-9368
+Plate      : BD-508-PH
+Type       : Car
+Spot       : F1-S04
+Status     : ACTIVE
+Entry      : 2026-06-17T20:19:46
+Exit       : Still parked
+Fee        : 0.00
+Amount paid: 0.00
+--------------------------------
+Ticket ID  : TKT-0011-9777
+Plate      : XC-697-US
+Type       : Car
+Spot       : F2-S08
+Status     : ACTIVE
+Entry      : 2026-06-17T20:00:46
+Exit       : Still parked
+Fee        : 0.00
+Amount paid: 0.00
+--------------------------------
+Ticket ID  : TKT-0040-0328
+Plate      : MN-269-WA
+Type       : Car
+Spot       : F0-S11
+Status     : ACTIVE
+Entry      : 2026-06-17T19:58:46
+Exit       : Still parked
+Fee        : 0.00
+Amount paid: 0.00
+--------------------------------
+Ticket ID  : TKT-0015-6591
+Plate      : KS-600-UE
+Type       : Car
+Spot       : F0-S18
+Status     : ACTIVE
+Entry      : 2026-06-17T19:52:46
+Exit       : Still parked
+Fee        : 0.00
+Amount paid: 0.00
+--------------------------------
+Ticket ID  : TKT-0035-2364
+Plate      : ER-329-VU
+Type       : Car
+Spot       : F1-C08
+Status     : ACTIVE
+Entry      : 2026-06-17T19:05:46
+Exit       : Still parked
+Fee        : 0.00
+Amount paid: 0.00
+--------------------------------
+Ticket ID  : TKT-0016-4531
+Plate      : LJ-529-BB
+Type       : Car
+Spot       : F0-S02
+Status     : ACTIVE
+Entry      : 2026-06-17T18:38:46
+Exit       : Still parked
+Fee        : 0.00
+Amount paid: 0.00
+--------------------------------
+Ticket ID  : TKT-0033-0409
+Plate      : DR-760-UA
+Type       : Car
+Spot       : F0-C09
+Status     : ACTIVE
+Entry      : 2026-06-17T17:34:46
+Exit       : Still parked
+Fee        : 0.00
+Amount paid: 0.00
+--------------------------------
+Ticket ID  : TKT-0027-7910
+Plate      : DA-925-VC
+Type       : Car
+Spot       : F1-S06
+Status     : ACTIVE
+Entry      : 2026-06-17T17:31:46
+Exit       : Still parked
+Fee        : 0.00
+Amount paid: 0.00
+--------------------------------
+Ticket ID  : TKT-0024-7042
+Plate      : SH-895-WZ
+Type       : Car
+Spot       : F2-C03
+Status     : ACTIVE
+Entry      : 2026-06-17T15:56:46
+Exit       : Still parked
+Fee        : 0.00
+Amount paid: 0.00
+--------------------------------
+Ticket ID  : TKT-0023-8702
+Plate      : FJ-688-HZ
+Type       : Car
+Spot       : F1-S01
+Status     : ACTIVE
+Entry      : 2026-06-17T15:30:46
+Exit       : Still parked
+Fee        : 0.00
+Amount paid: 0.00
+--------------------------------
+Ticket ID  : TKT-0046-1975
+Plate      : UR-124-CS
+Type       : Car
+Spot       : F2-C02
+Status     : ACTIVE
+Entry      : 2026-06-17T15:17:46
+Exit       : Still parked
+Fee        : 0.00
+Amount paid: 0.00
+--------------------------------
+Ticket ID  : TKT-0017-8945
+Plate      : GC-629-NR
+Type       : Car
+Spot       : F1-S07
+Status     : ACTIVE
+Entry      : 2026-06-17T15:10:46
+Exit       : Still parked
+Fee        : 0.00
+Amount paid: 0.00
+--------------------------------
+Ticket ID  : TKT-0025-4904
+Plate      : VW-765-HM
+Type       : Truck
+Spot       : F1-L04
+Status     : ACTIVE
+Entry      : 2026-06-17T15:05:46
+Exit       : Still parked
+Fee        : 0.00
+Amount paid: 0.00
+--------------------------------
+Ticket ID  : TKT-0014-0159
+Plate      : WG-303-AW
+Type       : Car
+Spot       : F0-S15
+Status     : ACTIVE
+Entry      : 2026-06-17T14:43:46
+Exit       : Still parked
+Fee        : 0.00
+Amount paid: 0.00
+--------------------------------
+Ticket ID  : TKT-0022-5362
+Plate      : 77/XZGB
+Type       : Motorcycle
+Spot       : F1-M04
+Status     : ACTIVE
+Entry      : 2026-06-17T14:35:46
+Exit       : Still parked
+Fee        : 0.00
+Amount paid: 0.00
+--------------------------------
+Ticket ID  : TKT-0004-2470
+Plate      : PZ-627-LM
+Type       : Car
+Spot       : F0-C03
+Status     : ACTIVE
+Entry      : 2026-06-17T14:06:46
+Exit       : Still parked
+Fee        : 0.00
+Amount paid: 0.00
+--------------------------------
+Ticket ID  : TKT-0030-0141
+Plate      : 60/DBTS
+Type       : Motorcycle
+Spot       : F0-M03
+Status     : ACTIVE
+Entry      : 2026-06-17T13:57:46
+Exit       : Still parked
+Fee        : 0.00
+Amount paid: 0.00
+--------------------------------
+Ticket ID  : TKT-0042-0870
+Plate      : LA-918-KS
+Type       : Car
+Spot       : F2-C09
+Status     : ACTIVE
+Entry      : 2026-06-17T13:54:46
+Exit       : Still parked
+Fee        : 0.00
+Amount paid: 0.00
+--------------------------------
+Ticket ID  : TKT-0003-7093
+Plate      : RK-843-WL
+Type       : Car
+Spot       : F0-C05
+Status     : ACTIVE
+Entry      : 2026-06-17T13:51:46
+Exit       : Still parked
+Fee        : 0.00
+Amount paid: 0.00
+--------------------------------
+Ticket ID  : TKT-0019-9586
+Plate      : BV-409-RE
+Type       : Truck
+Spot       : F0-L03
+Status     : ACTIVE
+Entry      : 2026-06-17T13:38:46
+Exit       : Still parked
+Fee        : 0.00
+Amount paid: 0.00
+--------------------------------
+Ticket ID  : TKT-0032-5727
+Plate      : GZ-856-PA
+Type       : Car
+Spot       : F0-S08
+Status     : ACTIVE
+Entry      : 2026-06-17T12:16:46
+Exit       : Still parked
+Fee        : 0.00
+Amount paid: 0.00
+--------------------------------
+Ticket ID  : TKT-0020-1805
+Plate      : 90/ABRC
+Type       : Motorcycle
+Spot       : F2-M04
+Status     : ACTIVE
+Entry      : 2026-06-17T11:35:46
+Exit       : Still parked
+Fee        : 0.00
+Amount paid: 0.00
+--------------------------------
+Ticket ID  : TKT-0038-1809
+Plate      : 21/LATF
+Type       : Motorcycle
+Spot       : F2-M05
+Status     : ACTIVE
+Entry      : 2026-06-17T11:25:46
+Exit       : Still parked
+Fee        : 0.00
+Amount paid: 0.00
+--------------------------------
+Ticket ID  : TKT-0009-0012
+Plate      : GW-847-JW
+Type       : Car
+Spot       : F1-C02
+Status     : ACTIVE
+Entry      : 2026-06-17T11:23:46
+Exit       : Still parked
+Fee        : 0.00
+Amount paid: 0.00
+--------------------------------
+Ticket ID  : TKT-0047-9837
+Plate      : NM-204-NW
+Type       : Car
+Spot       : F0-S06
+Status     : ACTIVE
+Entry      : 2026-06-17T11:04:46
+Exit       : Still parked
+Fee        : 0.00
+Amount paid: 0.00
+--------------------------------
+Ticket ID  : TKT-0031-9558
+Plate      : TW-741-ZE
+Type       : Car
+Spot       : F0-C04
+Status     : ACTIVE
+Entry      : 2026-06-17T10:58:46
+Exit       : Still parked
+Fee        : 0.00
+Amount paid: 0.00
+--------------------------------
+Ticket ID  : TKT-0021-3644
+Plate      : DU-611-DP
+Type       : Truck
+Spot       : F0-L01
+Status     : ACTIVE
+Entry      : 2026-06-17T10:55:46
+Exit       : Still parked
+Fee        : 0.00
+Amount paid: 0.00
+--------------------------------
+Ticket ID  : TKT-0039-1666
+Plate      : PA-149-JU
+Type       : Truck
+Spot       : F1-L05
+Status     : ACTIVE
+Entry      : 2026-06-17T10:16:46
+Exit       : Still parked
+Fee        : 0.00
+Amount paid: 0.00
+--------------------------------
+Ticket ID  : TKT-0010-1106
+Plate      : 68/VJLH
+Type       : Motorcycle
+Spot       : F2-M03
+Status     : ACTIVE
+Entry      : 2026-06-17T09:44:46
+Exit       : Still parked
+Fee        : 0.00
+Amount paid: 0.00
+--------------------------------
+Ticket ID  : TKT-0002-9039
+Plate      : VC-892-CA
+Type       : Car
+Spot       : F2-S07
+Status     : ACTIVE
+Entry      : 2026-06-17T09:32:46
+Exit       : Still parked
+Fee        : 0.00
+Amount paid: 0.00
+--------------------------------
+Ticket ID  : TKT-0026-7343
+Plate      : 49/RXMN
+Type       : Motorcycle
+Spot       : F1-M01
+Status     : ACTIVE
+Entry      : 2026-06-17T09:29:46
+Exit       : Still parked
+Fee        : 0.00
+Amount paid: 0.00
+--------------------------------
+Ticket ID  : TKT-0036-4977
+Plate      : WG-245-UU
+Type       : Car
+Spot       : F2-S18
+Status     : ACTIVE
+Entry      : 2026-06-17T09:26:46
+Exit       : Still parked
+Fee        : 0.00
+Amount paid: 0.00
+--------------------------------
+Ticket ID  : TKT-0006-4847
+Plate      : CM-959-FS
+Type       : Car
+Spot       : F1-S08
+Status     : ACTIVE
+Entry      : 2026-06-17T09:11:46
+Exit       : Still parked
+Fee        : 0.00
+Amount paid: 0.00
+--------------------------------
+Ticket ID  : TKT-0029-0186
+Plate      : RT-165-RA
+Type       : Car
+Spot       : F1-S15
+Status     : ACTIVE
+Entry      : 2026-06-17T09:06:46
+Exit       : Still parked
+Fee        : 0.00
+Amount paid: 0.00
+--------------------------------
+Ticket ID  : TKT-0012-0186
+Plate      : RC-923-EJ
+Type       : Car
+Spot       : F1-S12
+Status     : ACTIVE
+Entry      : 2026-06-17T08:39:46
+Exit       : Still parked
+Fee        : 0.00
+Amount paid: 0.00
+--------------------------------
+Ticket ID  : TKT-0005-2504
+Plate      : 15/GBFH
+Type       : Motorcycle
+Spot       : F0-M04
+Status     : ACTIVE
+Entry      : 2026-06-17T08:19:46
+Exit       : Still parked
+Fee        : 0.00
+Amount paid: 0.00
+--------------------------------
+Ticket ID  : TKT-0001-2742
+Plate      : VS-748-TR
+Type       : Car
+Spot       : F1-S17
+Status     : ACTIVE
+Entry      : 2026-06-17T07:58:46
+Exit       : Still parked
+Fee        : 0.00
+Amount paid: 0.00
+--------------------------------
+Ticket ID  : TKT-0018-6342
+Plate      : KG-331-CD
+Type       : Car
+Spot       : F0-S20
+Status     : ACTIVE
+Entry      : 2026-06-17T07:52:46
+Exit       : Still parked
+Fee        : 0.00
+Amount paid: 0.00
+--------------------------------
+Ticket ID  : TKT-0013-5017
+Plate      : JG-172-LW
+Type       : Car
+Spot       : F0-S05
+Status     : ACTIVE
+Entry      : 2026-06-17T07:35:46
+Exit       : Still parked
+Fee        : 0.00
+Amount paid: 0.00
+--------------------------------
+Ticket ID  : TKT-0034-4008
+Plate      : LR-964-WJ
+Type       : Truck
+Spot       : F1-L03
+Status     : ACTIVE
+Entry      : 2026-06-17T07:23:46
+Exit       : Still parked
+Fee        : 0.00
+Amount paid: 0.00
+--------------------------------
+Ticket ID  : TKT-0037-7609
+Plate      : 37/JRJB
+Type       : Motorcycle
+Spot       : F1-M05
+Status     : ACTIVE
+Entry      : 2026-06-17T07:00:46
+Exit       : Still parked
+Fee        : 0.00
+Amount paid: 0.00
+--------------------------------
+Ticket ID  : TKT-0041-3350
+Plate      : GE-991-FR
+Type       : Car
+Spot       : F2-S06
+Status     : ACTIVE
+Entry      : 2026-06-17T06:57:46
+Exit       : Still parked
+Fee        : 0.00
+Amount paid: 0.00
+--------------------------------
+Ticket ID  : TKT-0045-9928
+Plate      : VF-186-EX
+Type       : Car
+Spot       : F1-S20
+Status     : ACTIVE
+Entry      : 2026-06-17T06:01:46
+Exit       : Still parked
+Fee        : 0.00
+Amount paid: 0.00
+--------------------------------
+Ticket ID  : TKT-0008-2792
+Plate      : 80/ZZLR
+Type       : Motorcycle
+Spot       : F1-M02
+Status     : ACTIVE
+Entry      : 2026-06-17T05:57:46
+Exit       : Still parked
+Fee        : 0.00
+Amount paid: 0.00
+--------------------------------
+Ticket ID  : TKT-0007-5459
+Plate      : TD-175-ST
+Type       : Car
+Spot       : F0-C08
+Status     : ACTIVE
+Entry      : 2026-06-17T05:20:46
+Exit       : Still parked
+Fee        : 0.00
+Amount paid: 0.00
+--------------------------------
+Total tickets: 47
+Total revenue: 0.00

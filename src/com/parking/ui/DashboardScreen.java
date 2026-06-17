@@ -5,6 +5,7 @@ import com.parking.model.ParkingLot;
 import com.parking.model.Ticket;
 import javafx.animation.*;
 import javafx.collections.*;
+import javafx.collections.transformation.FilteredList;
 import javafx.geometry.*;
 import javafx.scene.Node;
 import javafx.scene.control.*;
@@ -740,78 +741,65 @@ public class DashboardScreen {
     }
 
     // ══════════════════════════════════════════════════════════════════════
-    // TABLE  — horizontal scroll lives inside the TableView itself
+    // TABLE  — styled via TableFactory
     // ══════════════════════════════════════════════════════════════════════
 
     private Node buildTable() {
-        table = new TableView<>(tableData);
-        table.setPrefHeight(300);
-        table.setMaxWidth(Double.MAX_VALUE);
-        // UNCONSTRAINED lets columns keep fixed widths; table's own hbar handles overflow
-        table.setColumnResizePolicy(TableView.UNCONSTRAINED_RESIZE_POLICY);
-
-        String tableCSS =
-                ".table-view{-fx-background-color:" + ParkingApp.BG_SURFACE
-                        + ";-fx-border-color:" + ParkingApp.BORDER + ";-fx-border-radius:12;-fx-background-radius:12;}" +
-                        ".table-view .column-header-background{-fx-background-color:" + ParkingApp.BG_RAISED + ";}" +
-                        ".table-view .column-header .label{-fx-text-fill:" + ParkingApp.TEXT_M
-                        + ";-fx-font-weight:bold;-fx-font-size:12px;}" +
-                        ".table-row-cell{-fx-background-color:" + ParkingApp.BG_SURFACE
-                        + ";-fx-border-color:" + ParkingApp.BORDER + ";-fx-border-width:0 0 1 0;}" +
-                        ".table-row-cell:odd{-fx-background-color:" + ParkingApp.BG_RAISED + ";}" +
-                        ".table-row-cell:selected{-fx-background-color:" + ParkingApp.ACCENT + "22;}" +
-                        ".table-cell{-fx-text-fill:" + ParkingApp.TEXT_H
-                        + ";-fx-font-size:13px;-fx-padding:10 14 10 14;}" +
-                        ".table-row-cell:selected .table-cell{-fx-text-fill:" + ParkingApp.TEXT_H + ";}" +
-                        ".table-view .scroll-bar:vertical .thumb{-fx-background-color:"
-                        + ParkingApp.BORDER_LIT + ";-fx-background-radius:4;}" +
-                        ".table-view .scroll-bar:horizontal .thumb{-fx-background-color:"
-                        + ParkingApp.BORDER_LIT + ";-fx-background-radius:4;}" +
-                        ".table-view .scroll-bar:horizontal .track{-fx-background-color:"
-                        + ParkingApp.BG_SURFACE + ";}";
-
-        table.getStylesheets().add("data:text/css," + tableCSS);
-
-        table.getSelectionModel().setCellSelectionEnabled(true);
-        table.getSelectionModel().setSelectionMode(SelectionMode.MULTIPLE);
-        table.setOnKeyPressed(event -> {
-            if (event.isControlDown() && event.getCode() == javafx.scene.input.KeyCode.C) {
-                StringBuilder sb = new StringBuilder();
-                for (TablePosition<?, ?> pos : table.getSelectionModel().getSelectedCells()) {
-                    Object cell = table.getColumns().get(pos.getColumn()).getCellData(pos.getRow());
-                    if (cell != null) sb.append(cell).append("\t");
-                }
-                javafx.scene.input.ClipboardContent cc = new javafx.scene.input.ClipboardContent();
-                cc.putString(sb.toString().trim());
-                javafx.scene.input.Clipboard.getSystemClipboard().setContent(cc);
-            }
-        });
-
-        table.setPlaceholder(buildPlaceholder());
-        table.getColumns().addAll(
-                col("Ticket ID",  "ticketId",  160),
-                col("Plate",      "plate",      130),
-                col("Type",       "type",       110),
-                col("Spot",       "spot",        90),
-                col("Entry Time", "entryTime",  120),
-                col("Est. Fee",   "estFee",     110)
+        TableFactory.Result<TicketRow> result = TableFactory.build(
+                tableData,
+                "Search by plate, ticket ID, spot, or type…",
+                (row, q) -> row.getTicketId().toLowerCase().contains(q)
+                        || row.getPlate().toLowerCase().contains(q)
+                        || row.getSpot().toLowerCase().contains(q)
+                        || row.getType().toLowerCase().contains(q)
         );
-        return table;
-    }
 
-    @SuppressWarnings("unchecked")
-    private <T> TableColumn<TicketRow, T> col(String hdr, String prop, double w) {
-        TableColumn<TicketRow, T> c = new TableColumn<>(hdr);
-        c.setCellValueFactory(new PropertyValueFactory<>(prop));
-        c.setPrefWidth(w);
-        return c;
-    }
+        table = result.table();
+        TableFactory.setVisibleRows(table, 8);
 
-    private Label buildPlaceholder() {
-        Label l = new Label("No vehicles currently parked  🅿");
-        l.setFont(Font.font("System", 14));
-        l.setTextFill(Color.web(ParkingApp.TEXT_M));
-        return l;
+        // Vehicle type badge — color by type
+        TableColumn<TicketRow, String> typeCol = TableFactory.badgeCol(
+                "Vehicle Type",
+                TicketRow::getType,
+                row -> switch (row.getType().toUpperCase()) {
+                    case "MOTORCYCLE" -> ParkingApp.ACCENT;
+                    case "TRUCK"      -> ParkingApp.WARNING;
+                    default           -> ParkingApp.INFO;
+                },
+                130
+        );
+
+        // Spot — dot colored by floor
+        TableColumn<TicketRow, String> spotCol = TableFactory.dotCol(
+                "Spot",
+                TicketRow::getSpot,
+                row -> {
+                    String s = row.getSpot();
+                    if (s.startsWith("F0")) return ParkingApp.SUCCESS;
+                    if (s.startsWith("F1")) return ParkingApp.ACCENT;
+                    return ParkingApp.INFO;
+                },
+                100
+        );
+
+        // Fee badge
+        TableColumn<TicketRow, String> feeCol = TableFactory.badgeCol(
+                "Est. Fee",
+                TicketRow::getEstFee,
+                row -> ParkingApp.SUCCESS,
+                120
+        );
+
+        table.getColumns().addAll(
+                TableFactory.copyableCol("Ticket ID", TicketRow::getTicketId, 180),
+                TableFactory.textCol("Plate",       TicketRow::getPlate,     130),
+                typeCol,
+                spotCol,
+                TableFactory.textCol("Entry Time",  TicketRow::getEntryTime, 120),
+                feeCol
+        );
+
+        return result.container();
     }
 
     // ══════════════════════════════════════════════════════════════════════

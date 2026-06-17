@@ -2,134 +2,115 @@ package com.parking.service;
 
 import java.time.LocalTime;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 /**
- * Defines time-based pricing tiers for the parking lot.
+ * Represents a named time-of-day pricing tier that applies a rate multiplier
+ * during a specific hour range.
  *
- * <p>The {@link FeeCalculator} checks the active tier at entry time
- * and applies its rate multiplier to the base rate. This allows the
- * admin to set higher rates during peak hours and lower rates at night.</p>
+ * <p>Tiers are managed as a static in-memory list (persisted to DB via
+ * AdminScreen). The active tier at any moment is found by matching the
+ * entry hour; if no tier matches, a default multiplier of 1.0 is used.</p>
  *
- * <h3>Example setup</h3>
+ * <h3>Example tiers</h3>
  * <pre>
- *   PricingTier peak    = new PricingTier("Peak",     "07:00", "19:00", 1.5);
- *   PricingTier offPeak = new PricingTier("Off-Peak", "19:00", "07:00", 0.75);
- *   PricingTier.setTiers(List.of(peak, offPeak));
+ *   Peak       08:00–18:00  ×1.5
+ *   Off-Peak   18:00–08:00  ×0.8
  * </pre>
  */
 public class PricingTier {
 
-    // ── Shared tier registry ──────────────────────────────────────────────
+    // ── Static tier registry ──────────────────────────────────────────────
     private static final List<PricingTier> tiers = new ArrayList<>();
 
     // ── Fields ────────────────────────────────────────────────────────────
-    private final String    name;
-    private final LocalTime startTime;
-    private final LocalTime endTime;
-    private final double    rateMultiplier; // 1.0 = normal, 1.5 = 50% more, 0.75 = 25% less
+    private String name;
+    private int    startHour;   // 0–23
+    private int    endHour;     // 0–23 (exclusive)
+    private double rateMultiplier;
 
-    // ── Constructor ───────────────────────────────────────────────────────
-
-    /**
-     * @param name           Display name, e.g. "Peak Hours"
-     * @param startTime      Start time in "HH:mm" format, e.g. "07:00"
-     * @param endTime        End time in "HH:mm" format, e.g. "19:00"
-     * @param rateMultiplier Multiplier applied to the base rate, e.g. 1.5
-     */
-    public PricingTier(String name, String startTime, String endTime, double rateMultiplier) {
-        if (name == null || name.isBlank())
-            throw new IllegalArgumentException("Tier name cannot be blank.");
-        if (rateMultiplier <= 0)
-            throw new IllegalArgumentException("Rate multiplier must be positive.");
-
+    public PricingTier(String name, int startHour, int endHour, double rateMultiplier) {
         this.name           = name;
-        this.startTime      = LocalTime.parse(startTime);
-        this.endTime        = LocalTime.parse(endTime);
+        this.startHour      = startHour;
+        this.endHour        = endHour;
         this.rateMultiplier = rateMultiplier;
     }
 
-    // ── Active tier lookup ────────────────────────────────────────────────
+    // ── Static management API (used by AdminScreen) ───────────────────────
 
     /**
-     * Returns the active tier for the given time, or a default 1.0x tier
-     * if no tiers are configured or none match.
+     * Returns an unmodifiable view of all currently configured tiers.
      */
-    public static PricingTier getActiveTier(LocalTime time) {
-        if (tiers.isEmpty()) return defaultTier();
-
-        for (PricingTier tier : tiers) {
-            if (tier.isActive(time)) return tier;
-        }
-        return defaultTier();
+    public static List<PricingTier> getAllTiers() {
+        return Collections.unmodifiableList(tiers);
     }
 
     /**
-     * Convenience method — returns the multiplier active right now.
+     * Adds a new tier or updates an existing one with the same name.
      */
-    public static double getCurrentMultiplier() {
-        return getActiveTier(LocalTime.now()).getRateMultiplier();
+    public static void upsertTier(String name, int startHour, int endHour, double multiplier) {
+        tiers.removeIf(t -> t.name.equalsIgnoreCase(name));
+        tiers.add(new PricingTier(name, startHour, endHour, multiplier));
+        tiers.sort((a, b) -> Integer.compare(a.startHour, b.startHour));
     }
 
     /**
-     * Returns true if this tier is active at the given time.
-     * Handles overnight tiers (e.g. 22:00 → 06:00).
+     * Removes the tier with the given name (case-insensitive). No-op if not found.
      */
-    public boolean isActive(LocalTime time) {
-        if (startTime.isBefore(endTime)) {
-            // Normal range: e.g. 07:00 → 19:00
-            return !time.isBefore(startTime) && time.isBefore(endTime);
-        } else {
-            // Overnight range: e.g. 22:00 → 06:00
-            return !time.isBefore(startTime) || time.isBefore(endTime);
-        }
+    public static void removeTier(String name) {
+        tiers.removeIf(t -> t.name.equalsIgnoreCase(name));
     }
-
-    // ── Tier registry management ──────────────────────────────────────────
-
-    public static void addTier(PricingTier tier) {
-        tiers.add(tier);
-    }
-
-    public static void setTiers(List<PricingTier> newTiers) {
-        tiers.clear();
-        tiers.addAll(newTiers);
-    }
-
-    public static void clearTiers() {
-        tiers.clear();
-    }
-
-    public static List<PricingTier> getTiers() {
-        return List.copyOf(tiers);
-    }
-
-    // ── Default tiers (called at app startup) ─────────────────────────────
 
     /**
-     * Installs a sensible default tier set:
-     * Peak (07:00–19:00) at 1.5× and Off-Peak (19:00–07:00) at 0.75×.
+     * Clears all tiers and re-seeds with sensible defaults.
+     * Called by ParkingApp on startup via {@code PricingTier.installDefaults()}.
      */
     public static void installDefaults() {
         tiers.clear();
-        tiers.add(new PricingTier("Peak Hours",    "07:00", "19:00", 1.5));
-        tiers.add(new PricingTier("Off-Peak Hours","19:00", "07:00", 0.75));
+        tiers.add(new PricingTier("Standard",  0,  8, 1.0));
+        tiers.add(new PricingTier("Peak",       8, 18, 1.5));
+        tiers.add(new PricingTier("Evening",   18, 24, 1.2));
     }
 
-    private static PricingTier defaultTier() {
-        return new PricingTier("Standard", "00:00", "23:59", 1.0);
+    // ── Active tier lookup (used by FeeCalculator) ────────────────────────
+
+    /**
+     * Returns the active pricing tier for the given time, or a default
+     * 1.0× tier if no configured tier covers that hour.
+     */
+    public static PricingTier getActiveTier(LocalTime time) {
+        int hour = time.getHour();
+        for (PricingTier t : tiers) {
+            if (t.startHour <= t.endHour) {
+                // Normal range: e.g. 08:00–18:00
+                if (hour >= t.startHour && hour < t.endHour) return t;
+            } else {
+                // Wraps midnight: e.g. 22:00–06:00
+                if (hour >= t.startHour || hour < t.endHour) return t;
+            }
+        }
+        // No match → neutral multiplier
+        return new PricingTier("Default", 0, 24, 1.0);
     }
 
     // ── Getters ───────────────────────────────────────────────────────────
 
-    public String    getName()           { return name; }
-    public LocalTime getStartTime()      { return startTime; }
-    public LocalTime getEndTime()        { return endTime; }
-    public double    getRateMultiplier() { return rateMultiplier; }
+    public String getName()            { return name; }
+    public int    getStartHour()       { return startHour; }
+    public int    getEndHour()         { return endHour; }
+    public double getRateMultiplier()  { return rateMultiplier; }
+
+    // ── Setters (for upsert) ──────────────────────────────────────────────
+
+    public void setName(String name)                       { this.name = name; }
+    public void setStartHour(int startHour)                { this.startHour = startHour; }
+    public void setEndHour(int endHour)                    { this.endHour = endHour; }
+    public void setRateMultiplier(double rateMultiplier)   { this.rateMultiplier = rateMultiplier; }
 
     @Override
     public String toString() {
-        return String.format("PricingTier{%s %s–%s ×%.2f}",
-                name, startTime, endTime, rateMultiplier);
+        return String.format("PricingTier{name='%s', %02d:00–%02d:00, ×%.2f}",
+                name, startHour, endHour, rateMultiplier);
     }
 }
